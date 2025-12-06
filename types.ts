@@ -21,7 +21,9 @@ export interface Entity {
 
 export interface StationStats {
   totalProcessed: number;
-  totalGenerated?: number; // For source
+  totalGenerated?: number; // For source nodes
+  totalDefects?: number; // For quality/inspection nodes - defects found
+  totalScrapped?: number; // Items scrapped (no rework path)
   busyTime: number;
   blockedTime: number;
   starvedTime: number;

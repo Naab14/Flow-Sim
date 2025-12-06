@@ -64,6 +64,8 @@ export class Simulator {
         stats: {
           totalProcessed: 0,
           totalGenerated: 0,
+          totalDefects: 0,
+          totalScrapped: 0,
           busyTime: 0,
           blockedTime: 0,
           starvedTime: 0,
@@ -254,6 +256,45 @@ export class Simulator {
       this.processedWindow.push(this.currentTime);
       this.tryStartProcess(nodeId);
       return;
+    }
+
+    // QUALITY/INSPECTION node: Check for defects
+    // Manufacturing analogy: QC inspector checks part against specs
+    if (state.config.type === NodeType.QUALITY) {
+      const defectRate = state.config.defectRate || 0;
+      const isDefect = Math.random() * 100 < defectRate;
+
+      if (isDefect) {
+        // Mark entity as defective
+        entity.type = 'defect';
+        state.stats.totalDefects = (state.stats.totalDefects || 0) + 1;
+
+        // Route to second target (rework lane) if available
+        if (targets.length > 1) {
+          // Has rework path - route defect there
+          const reworkTargetId = targets[1];
+          if (this.canAcceptEntity(reworkTargetId)) {
+            state.processing.splice(entityIndex, 1);
+            state.stats.totalProcessed++;
+            this.startMove(entity, nodeId, reworkTargetId);
+            this.tryStartProcess(nodeId);
+            return;
+          }
+          // Rework path full - will block (handled below)
+        } else {
+          // No rework path - SCRAP the entity
+          // Manufacturing analogy: Part fails QC, no rework lane, goes to scrap bin
+          state.processing.splice(entityIndex, 1);
+          state.stats.totalProcessed++;
+          state.stats.totalScrapped = (state.stats.totalScrapped || 0) + 1;
+          entity.state = 'completed'; // Removed from system
+          entity.completedAt = this.currentTime;
+          // Note: NOT added to processedWindow (scrap doesn't count as throughput)
+          this.tryStartProcess(nodeId);
+          return;
+        }
+      }
+      // If good, continue with normal routing (targets[0])
     }
 
     // Find best target to route to
