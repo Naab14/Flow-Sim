@@ -1,4 +1,5 @@
 import { NodeType } from './types';
+import { MarkerType } from 'reactflow';
 
 export const INITIAL_NODES = [
   {
@@ -55,8 +56,24 @@ export const INITIAL_NODES = [
 ];
 
 export const INITIAL_EDGES = [
-  { id: 'e1-2', source: '1', target: '2', animated: true, style: { stroke: '#475569' } },
-  { id: 'e2-3', source: '2', target: '3', animated: true, style: { stroke: '#475569' } },
+  { 
+    id: 'e1-2', 
+    source: '1', 
+    target: '2', 
+    animated: true, 
+    type: 'smoothstep',
+    style: { stroke: '#475569', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' }
+  },
+  { 
+    id: 'e2-3', 
+    source: '2', 
+    target: '3', 
+    animated: true, 
+    type: 'smoothstep',
+    style: { stroke: '#475569', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' }
+  },
 ];
 
 export const NODE_TYPES_CONFIG = {

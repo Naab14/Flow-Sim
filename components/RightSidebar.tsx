@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AppNode, NodeType } from '../types';
-import { Zap, Settings, BarChart3, AlertCircle } from 'lucide-react';
+import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders } from 'lucide-react';
 
 interface RightSidebarProps {
   selectedNode: AppNode | null;
@@ -10,6 +10,7 @@ interface RightSidebarProps {
 
 const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onAnalyze }) => {
   const [activeTab, setActiveTab] = useState<'properties' | 'analysis'>('properties');
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleChange = (field: string, value: string | number) => {
     if (!selectedNode) return;
@@ -21,10 +22,38 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onA
 
   const isProcess = selectedNode?.data.type === NodeType.PROCESS || selectedNode?.data.type === NodeType.QUALITY;
 
+  if (isCollapsed) {
+     return (
+        <div className="w-12 bg-[#0f172a] border-l border-slate-800 flex flex-col items-center py-4 gap-4 z-20">
+           <button onClick={() => setIsCollapsed(false)} className="p-2 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors">
+              <PanelRightOpen size={20} />
+           </button>
+           <div className="h-px w-6 bg-slate-800"></div>
+           <button 
+              onClick={() => { setIsCollapsed(false); setActiveTab('properties'); }}
+              className={`p-2 rounded hover:bg-slate-800 transition-colors ${activeTab === 'properties' ? 'text-blue-400' : 'text-slate-500'}`}
+              title="Properties"
+           >
+              <Settings size={20} />
+           </button>
+           <button 
+              onClick={() => { setIsCollapsed(false); setActiveTab('analysis'); }}
+              className={`p-2 rounded hover:bg-slate-800 transition-colors ${activeTab === 'analysis' ? 'text-purple-400' : 'text-slate-500'}`}
+              title="Analysis"
+           >
+              <Zap size={20} />
+           </button>
+        </div>
+     );
+  }
+
   return (
-    <div className="w-80 bg-[#0f172a] border-l border-slate-800 flex flex-col h-full z-20 shadow-xl">
+    <div className="w-80 bg-[#0f172a] border-l border-slate-800 flex flex-col h-full z-20 shadow-xl transition-all duration-300">
       {/* Tabs */}
-      <div className="flex border-b border-slate-800">
+      <div className="flex items-center border-b border-slate-800">
+         <button onClick={() => setIsCollapsed(true)} className="p-3 text-slate-500 hover:text-slate-300 border-r border-slate-800 hover:bg-slate-900 transition-colors">
+            <PanelRightClose size={18} />
+         </button>
         <button
           onClick={() => setActiveTab('properties')}
           className={`flex-1 py-3 text-sm font-medium transition-colors relative
@@ -51,7 +80,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onA
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
                 <div className="p-2 bg-slate-800 rounded">
-                  <Settings size={20} className="text-slate-400" />
+                  <Sliders size={20} className="text-slate-400" />
                 </div>
                 <div>
                    <h2 className="text-lg font-bold text-slate-100">{selectedNode.data.label}</h2>

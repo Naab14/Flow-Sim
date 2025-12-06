@@ -10,8 +10,11 @@ import ReactFlow, {
   Edge,
   Node,
   MiniMap,
-  BackgroundVariant
+  BackgroundVariant,
+  MarkerType,
+  useReactFlow
 } from 'reactflow';
+import dagre from 'dagre';
 import Sidebar from './components/Sidebar';
 import RightSidebar from './components/RightSidebar';
 import CustomNode from './components/CustomNode';
@@ -19,6 +22,39 @@ import AnalysisModal from './components/AnalysisModal';
 import { INITIAL_NODES, INITIAL_EDGES, NODE_TYPES_CONFIG } from './constants';
 import { AppNode, NodeType, SimulationResult } from './types';
 import { analyzeFlow } from './services/geminiService';
+
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+  const isHorizontal = direction === 'LR';
+  dagreGraph.setGraph({ rankdir: direction });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: 200, height: 100 });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      targetPosition: isHorizontal ? 'left' : 'top',
+      sourcePosition: isHorizontal ? 'right' : 'bottom',
+      position: {
+        x: nodeWithPosition.x - 200 / 2,
+        y: nodeWithPosition.y - 100 / 2,
+      },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+};
 
 const App: React.FC = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -39,8 +75,23 @@ const App: React.FC = () => {
 
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
 
+  const onLayout = useCallback(() => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      nodes,
+      edges
+    );
+    setNodes([...layoutedNodes]);
+    setEdges([...layoutedEdges]);
+  }, [nodes, edges, setNodes, setEdges]);
+
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, type: 'smoothstep', style: { stroke: '#475569', strokeWidth: 2 } }, eds)),
+    (params: Connection) => setEdges((eds) => addEdge({ 
+        ...params, 
+        animated: true, 
+        type: 'smoothstep', 
+        style: { stroke: '#475569', strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' }
+    }, eds)),
     [setEdges]
   );
 
@@ -88,13 +139,67 @@ const App: React.FC = () => {
     [reactFlowInstance, setNodes]
   );
 
+  const resetNodeStyles = useCallback(() => {
+     setNodes((nds) => nds.map((n) => ({
+        ...n,
+        style: { ...n.style, opacity: 1 }
+     })));
+     setEdges((eds) => eds.map((e) => ({
+        ...e,
+        style: { stroke: '#475569', strokeWidth: 2, opacity: 1 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' },
+        animated: true
+     })));
+  }, [setNodes, setEdges]);
+
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setSelectedNode(node as AppNode);
-  }, []);
+
+    // Highlight relationships
+    const nodeId = node.id;
+    const connectedEdges = edges.filter(e => e.source === nodeId || e.target === nodeId);
+    const connectedNodeIds = new Set();
+    connectedEdges.forEach(e => {
+        connectedNodeIds.add(e.source);
+        connectedNodeIds.add(e.target);
+    });
+
+    setNodes((nds) => nds.map((n) => ({
+        ...n,
+        style: { 
+            ...n.style, 
+            opacity: (n.id === nodeId || connectedNodeIds.has(n.id)) ? 1 : 0.25,
+            transition: 'opacity 0.3s'
+        }
+    })));
+
+    setEdges((eds) => eds.map((e) => {
+        const isConnected = e.source === nodeId || e.target === nodeId;
+        const isIncoming = e.target === nodeId;
+        const color = isConnected ? (isIncoming ? '#10b981' : '#3b82f6') : '#475569';
+        
+        return {
+            ...e,
+            style: {
+                ...e.style,
+                stroke: color,
+                opacity: isConnected ? 1 : 0.1,
+                strokeWidth: isConnected ? 3 : 2
+            },
+            animated: isConnected,
+            markerEnd: {
+                 type: MarkerType.ArrowClosed,
+                 color: color,
+            }
+        };
+    }));
+
+  }, [edges, setNodes, setEdges]);
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
-  }, []);
+    resetNodeStyles();
+  }, [resetNodeStyles]);
 
   const updateNodeData = useCallback((id: string, newData: any) => {
     setNodes((nds) =>
@@ -138,7 +243,7 @@ const App: React.FC = () => {
               // Simple simulation logic for visualization
               if (node.data.type === NodeType.SOURCE) {
                   // Source always generates if inv < 1000
-                  return { ...node, data: { ...node.data, inventory: Math.max(0, node.data.inventory - 1), processed: node.data.processed + 1 } };
+                  return { ...node, data: { ...node.data, inventory: Math.max(0, node.data.inventory - 1), processed: node.data.processed + 1, status: 'active' } };
               } 
               
               if (node.data.type === NodeType.PROCESS || node.data.type === NodeType.QUALITY) {
@@ -146,16 +251,31 @@ const App: React.FC = () => {
                  let newProgress = node.data.progress + (100 / (node.data.cycleTime || 10)); // approximate tick
                  let newProcessed = node.data.processed;
                  let newInv = node.data.inventory;
-                 
-                 // Randomly receive inventory from "upstream" (simulated by random chance for visual effect since we aren't traversing graph every tick)
+                 let newStatus = node.data.status;
+
+                 // Simulate finding materials (incoming)
                  if (Math.random() > 0.8) newInv += 1;
 
-                 if (newProgress >= 100 && newInv > 0) {
-                    newProgress = 0;
-                    newInv -= 1;
-                    newProcessed += 1;
-                 } else if (newInv === 0) {
-                    newProgress = 0; // Starved
+                 // Random "Blockage" simulation (downstream full)
+                 const isSimulatedBlocked = Math.random() > 0.95;
+
+                 if (newProgress >= 100) {
+                    if (isSimulatedBlocked && newInv > 0) {
+                       newStatus = 'blocked';
+                       newProgress = 100; // stuck at 100
+                    } else if (newInv > 0) {
+                       newProgress = 0;
+                       newInv -= 1;
+                       newProcessed += 1;
+                       newStatus = 'active';
+                    } else {
+                       newProgress = 0;
+                       newStatus = 'starved';
+                    }
+                 } else if (newInv === 0 && newProgress === 0) {
+                    newStatus = 'starved';
+                 } else {
+                    newStatus = 'active';
                  }
 
                  return { 
@@ -165,7 +285,7 @@ const App: React.FC = () => {
                        progress: Math.min(newProgress, 100), 
                        inventory: newInv,
                        processed: newProcessed,
-                       status: newInv > 0 ? 'active' : 'starved'
+                       status: newStatus as any
                     } 
                  };
               }
@@ -190,9 +310,16 @@ const App: React.FC = () => {
     setIsPlaying(false);
     setSimulationTime(0);
     setProcessedCount(0);
+    resetNodeStyles();
     setNodes(nds => nds.map(n => ({
        ...n,
-       data: { ...n.data, inventory: n.data.type === NodeType.SOURCE ? 1000 : 0, processed: 0, progress: 0, status: 'idle' }
+       data: { 
+         ...n.data, 
+         inventory: n.data.type === NodeType.SOURCE ? 1000 : 0, 
+         processed: 0, 
+         progress: 0, 
+         status: 'idle' 
+       }
     })));
   };
 
@@ -205,12 +332,13 @@ const App: React.FC = () => {
            isPlaying={isPlaying} 
            onTogglePlay={() => setIsPlaying(!isPlaying)}
            onReset={handleReset}
+           onLayout={onLayout}
            throughput={simulationTime > 0 ? (processedCount / simulationTime) * 60 : 0}
            wipItems={nodes.reduce((acc, n) => acc + (n.data.inventory || 0), 0)}
         />
         
         {/* Center Canvas */}
-        <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
+        <div className="flex-1 h-full relative flex flex-col" ref={reactFlowWrapper}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
