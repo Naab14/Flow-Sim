@@ -1,0 +1,5 @@
+{
+  "name": "LeanFlow Sim",
+  "description": "A Lean Six Sigma manufacturing line simulator. Build production flows, define process parameters, and use Gemini AI to analyze bottlenecks, throughput, and suggest improvements.",
+  "requestFramePermissions": []
+}
