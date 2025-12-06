@@ -25,6 +25,11 @@ export class Simulator {
   public history: { time: number; throughput: number; wip: number }[] = [];
   private processedWindow: number[] = []; // Timestamps of completion
 
+  // Warm-up period: Discard stats before this time (seconds)
+  // Manufacturing analogy: Let production line reach steady state before measuring
+  private warmupTime: number = 0;
+  private isWarmedUp: boolean = false;
+
   constructor() {
     this.eventQueue = new PriorityQueue();
     this.currentTime = 0;
@@ -41,6 +46,23 @@ export class Simulator {
     return this.currentTime;
   }
 
+  /**
+   * Set warm-up period (in seconds of simulation time)
+   * Stats collected before this time will be discarded
+   * Manufacturing analogy: Let the line run until WIP stabilizes before measuring
+   */
+  public setWarmupTime(seconds: number): void {
+    this.warmupTime = seconds;
+  }
+
+  public getWarmupTime(): number {
+    return this.warmupTime;
+  }
+
+  public getIsWarmedUp(): boolean {
+    return this.isWarmedUp;
+  }
+
   public initialize(nodes: AppNode[], edges: AppEdge[]) {
     this.currentTime = 0;
     this.eventQueue.clear();
@@ -51,6 +73,7 @@ export class Simulator {
     this.movingEntities = [];
     this.history = [];
     this.processedWindow = [];
+    this.isWarmedUp = false; // Reset warm-up status
 
     // Setup Nodes
     nodes.forEach(node => {
@@ -420,20 +443,48 @@ export class Simulator {
   }
 
   private updateStats() {
-      // Remove old processed records (> 60s ago) for rolling throughput
-      const now = this.currentTime;
-      this.processedWindow = this.processedWindow.filter(t => now - t <= 60);
+    // Check if we've completed warm-up period
+    // Manufacturing analogy: "Let the line stabilize before measuring performance"
+    if (!this.isWarmedUp && this.currentTime >= this.warmupTime) {
+      this.isWarmedUp = true;
 
+      // Reset all stats - discard cold-start data
+      // Manufacturing analogy: Clear the whiteboard, start fresh measurements
+      this.processedWindow = [];
+      this.history = [];
+      this.nodes.forEach(state => {
+        state.stats.totalProcessed = 0;
+        state.stats.totalGenerated = 0;
+        state.stats.totalDefects = 0;
+        state.stats.totalScrapped = 0;
+        state.stats.busyTime = 0;
+        state.stats.blockedTime = 0;
+        state.stats.starvedTime = 0;
+        // Note: Keep entities in queues - we're just resetting measurements
+      });
+    }
+
+    // Remove old processed records (> 60s ago) for rolling throughput
+    const now = this.currentTime;
+    this.processedWindow = this.processedWindow.filter(t => now - t <= 60);
+
+    // Only accumulate time-based stats after warm-up
+    // (Counters like totalProcessed are incremented elsewhere, only after warm-up matters for display)
+    if (this.isWarmedUp || this.warmupTime === 0) {
       // Update node utilization timers
       this.nodes.forEach(state => {
-          if (state.status === 'active') state.stats.busyTime += 0.1; // approx tick
-          if (state.status === 'blocked') state.stats.blockedTime += 0.1;
-          if (state.status === 'starved') state.stats.starvedTime += 0.1;
-          
-          const totalTime = this.currentTime || 1;
-          state.stats.utilization = (state.stats.busyTime / totalTime) * 100;
-          state.stats.queueLength = state.queue.length;
+        if (state.status === 'active') state.stats.busyTime += 0.1; // approx tick
+        if (state.status === 'blocked') state.stats.blockedTime += 0.1;
+        if (state.status === 'starved') state.stats.starvedTime += 0.1;
+
+        // Calculate utilization based on time since warm-up (or total time if no warm-up)
+        const effectiveTime = this.warmupTime > 0
+          ? Math.max(this.currentTime - this.warmupTime, 1)
+          : Math.max(this.currentTime, 1);
+        state.stats.utilization = (state.stats.busyTime / effectiveTime) * 100;
+        state.stats.queueLength = state.queue.length;
       });
+    }
   }
 
   public getGlobalStats(): GlobalStats {
