@@ -11,10 +11,9 @@ export const INITIAL_NODES = [
       cycleTime: 5, 
       defectRate: 0, 
       batchSize: 100, 
-      capacity: 0,
-      inventory: 1000,
-      processed: 0,
-      status: 'active',
+      capacity: 1,
+      stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
+      status: 'idle',
       progress: 0
     },
     position: { x: 50, y: 100 },
@@ -25,14 +24,13 @@ export const INITIAL_NODES = [
     data: { 
       label: 'Machining', 
       type: NodeType.PROCESS, 
-      cycleTime: 15, 
+      cycleTime: 10, 
       defectRate: 1, 
       batchSize: 1, 
-      capacity: 0,
-      inventory: 4,
-      processed: 6,
-      status: 'active',
-      progress: 60
+      capacity: 1,
+      stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
+      status: 'idle',
+      progress: 0
     },
     position: { x: 300, y: 100 },
   },
@@ -40,18 +38,49 @@ export const INITIAL_NODES = [
     id: '3',
     type: 'custom',
     data: { 
-      label: 'WIP Store', 
+      label: 'Buffer', 
       type: NodeType.INVENTORY, 
       cycleTime: 0, 
       defectRate: 0, 
       batchSize: 10, 
-      capacity: 0,
-      inventory: 0,
-      processed: 0,
+      capacity: 5, // Limited space
+      stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
       status: 'idle',
       progress: 0
     },
     position: { x: 550, y: 100 },
+  },
+  {
+    id: '4',
+    type: 'custom',
+    data: { 
+      label: 'Assembly', 
+      type: NodeType.PROCESS, 
+      cycleTime: 15, // Slower than machining -> Bottleneck
+      defectRate: 0, 
+      batchSize: 1, 
+      capacity: 1,
+      stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
+      status: 'idle',
+      progress: 0
+    },
+    position: { x: 800, y: 100 },
+  },
+  {
+    id: '5',
+    type: 'custom',
+    data: { 
+      label: 'Shipping', 
+      type: NodeType.SHIPPING, 
+      cycleTime: 0, 
+      defectRate: 0, 
+      batchSize: 1, 
+      capacity: 1,
+      stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
+      status: 'idle',
+      progress: 0
+    },
+    position: { x: 1050, y: 100 },
   },
 ];
 
@@ -69,6 +98,24 @@ export const INITIAL_EDGES = [
     id: 'e2-3', 
     source: '2', 
     target: '3', 
+    animated: true, 
+    type: 'smoothstep',
+    style: { stroke: '#475569', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' }
+  },
+  { 
+    id: 'e3-4', 
+    source: '3', 
+    target: '4', 
+    animated: true, 
+    type: 'smoothstep',
+    style: { stroke: '#475569', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' }
+  },
+  { 
+    id: 'e4-5', 
+    source: '4', 
+    target: '5', 
     animated: true, 
     type: 'smoothstep',
     style: { stroke: '#475569', strokeWidth: 2 },

@@ -1,16 +1,24 @@
 import React, { useState } from 'react';
 import { AppNode, NodeType } from '../types';
-import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders } from 'lucide-react';
+import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders, Activity, Clock, Layers } from 'lucide-react';
+import KPIChart from './KPIChart';
 
 interface RightSidebarProps {
   selectedNode: AppNode | null;
   onChange: (id: string, data: any) => void;
   onAnalyze: () => void;
+  simulationData: { throughput: number; wip: number; history: any[] };
 }
 
-const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onAnalyze }) => {
-  const [activeTab, setActiveTab] = useState<'properties' | 'analysis'>('properties');
+const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onAnalyze, simulationData }) => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'properties' | 'analysis'>('dashboard');
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Switch to properties tab automatically when a node is selected
+  React.useEffect(() => {
+    if (selectedNode) setActiveTab('properties');
+    else if (activeTab === 'properties') setActiveTab('dashboard');
+  }, [selectedNode]);
 
   const handleChange = (field: string, value: string | number) => {
     if (!selectedNode) return;
@@ -21,61 +29,97 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onA
   };
 
   const isProcess = selectedNode?.data.type === NodeType.PROCESS || selectedNode?.data.type === NodeType.QUALITY;
+  const isInventory = selectedNode?.data.type === NodeType.INVENTORY;
 
   if (isCollapsed) {
      return (
-        <div className="w-12 bg-[#0f172a] border-l border-slate-800 flex flex-col items-center py-4 gap-4 z-20">
+        <div className="w-14 bg-[#0f172a] border-l border-slate-800 flex flex-col items-center py-4 gap-4 z-20">
            <button onClick={() => setIsCollapsed(false)} className="p-2 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors">
               <PanelRightOpen size={20} />
            </button>
            <div className="h-px w-6 bg-slate-800"></div>
-           <button 
-              onClick={() => { setIsCollapsed(false); setActiveTab('properties'); }}
-              className={`p-2 rounded hover:bg-slate-800 transition-colors ${activeTab === 'properties' ? 'text-blue-400' : 'text-slate-500'}`}
-              title="Properties"
-           >
-              <Settings size={20} />
-           </button>
-           <button 
-              onClick={() => { setIsCollapsed(false); setActiveTab('analysis'); }}
-              className={`p-2 rounded hover:bg-slate-800 transition-colors ${activeTab === 'analysis' ? 'text-purple-400' : 'text-slate-500'}`}
-              title="Analysis"
-           >
-              <Zap size={20} />
-           </button>
+           <button onClick={() => { setIsCollapsed(false); setActiveTab('dashboard'); }} className="text-emerald-400 p-2"><BarChart3 size={20}/></button>
+           <button onClick={() => { setIsCollapsed(false); setActiveTab('properties'); }} className="text-blue-400 p-2"><Settings size={20}/></button>
         </div>
      );
   }
 
   return (
-    <div className="w-80 bg-[#0f172a] border-l border-slate-800 flex flex-col h-full z-20 shadow-xl transition-all duration-300">
+    <div className="w-96 bg-[#0f172a] border-l border-slate-800 flex flex-col h-full z-20 shadow-xl transition-all duration-300">
       {/* Tabs */}
-      <div className="flex items-center border-b border-slate-800">
+      <div className="flex items-center border-b border-slate-800 bg-slate-900/50">
          <button onClick={() => setIsCollapsed(true)} className="p-3 text-slate-500 hover:text-slate-300 border-r border-slate-800 hover:bg-slate-900 transition-colors">
             <PanelRightClose size={18} />
          </button>
         <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors relative
+            ${activeTab === 'dashboard' ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-500 hover:text-slate-300'}
+          `}
+        >
+          KPIs
+          {activeTab === 'dashboard' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500"></div>}
+        </button>
+        <button
           onClick={() => setActiveTab('properties')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors relative
-            ${activeTab === 'properties' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'}
+          className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors relative
+            ${activeTab === 'properties' ? 'text-blue-400 bg-slate-800/50' : 'text-slate-500 hover:text-slate-300'}
           `}
         >
           Properties
-          {activeTab === 'properties' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>}
+          {activeTab === 'properties' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
         </button>
         <button
           onClick={() => setActiveTab('analysis')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors relative
-            ${activeTab === 'analysis' ? 'text-purple-400' : 'text-slate-500 hover:text-slate-300'}
+          className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors relative
+            ${activeTab === 'analysis' ? 'text-purple-400 bg-slate-800/50' : 'text-slate-500 hover:text-slate-300'}
           `}
         >
-          Analysis
-          {activeTab === 'analysis' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div>}
+          AI
+          {activeTab === 'analysis' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500"></div>}
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-        {activeTab === 'properties' ? (
+        
+        {/* DASHBOARD TAB */}
+        {activeTab === 'dashboard' && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                        <Activity className="text-emerald-500" /> Live Metrics
+                    </h2>
+                    <span className="text-xs text-slate-500 font-mono animate-pulse">● LIVE</span>
+                </div>
+
+                {/* Throughput Card */}
+                <div className="bg-slate-800/40 rounded-lg p-4 border border-slate-700">
+                    <div className="flex justify-between items-end mb-2">
+                        <div>
+                            <p className="text-xs text-slate-400 uppercase font-semibold">Throughput</p>
+                            <p className="text-2xl font-mono text-white">{simulationData.throughput.toFixed(0)} <span className="text-sm text-slate-500">u/min</span></p>
+                        </div>
+                        <Zap size={20} className="text-emerald-500 mb-2"/>
+                    </div>
+                    <KPIChart data={simulationData.history} dataKey="throughput" color="#10b981" label="Throughput" />
+                </div>
+
+                {/* WIP Card */}
+                <div className="bg-slate-800/40 rounded-lg p-4 border border-slate-700">
+                    <div className="flex justify-between items-end mb-2">
+                        <div>
+                            <p className="text-xs text-slate-400 uppercase font-semibold">Work In Process (WIP)</p>
+                            <p className="text-2xl font-mono text-white">{simulationData.wip} <span className="text-sm text-slate-500">units</span></p>
+                        </div>
+                        <Layers size={20} className="text-amber-500 mb-2"/>
+                    </div>
+                    <KPIChart data={simulationData.history} dataKey="wip" color="#f59e0b" label="WIP" />
+                </div>
+            </div>
+        )}
+
+        {/* PROPERTIES TAB */}
+        {activeTab === 'properties' && (
           selectedNode ? (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
@@ -113,6 +157,18 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onA
                     </div>
 
                     <div>
+                       <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">Capacity (Parallel Units)</label>
+                       <input
+                         type="number"
+                         min="1"
+                         className="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-slate-200 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                         value={selectedNode.data.capacity || 1}
+                         onChange={(e) => handleChange('capacity', Number(e.target.value))}
+                       />
+                       <p className="text-[10px] text-slate-500 mt-1">Number of items processed simultaneously.</p>
+                    </div>
+
+                    <div>
                       <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">Defect Rate (%)</label>
                       <div className="relative">
                         <input
@@ -134,54 +190,82 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onA
                   </>
                 )}
 
-                <div>
-                   <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">Batch Size</label>
-                   <input
-                     type="number"
-                     min="1"
-                     className="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-slate-200 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                     value={selectedNode.data.batchSize}
-                     onChange={(e) => handleChange('batchSize', Number(e.target.value))}
-                   />
+                {isInventory && (
+                    <div>
+                       <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">Max Storage Capacity</label>
+                       <input
+                         type="number"
+                         min="1"
+                         className="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-slate-200 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                         value={selectedNode.data.capacity || 10}
+                         onChange={(e) => handleChange('capacity', Number(e.target.value))}
+                       />
+                       <p className="text-[10px] text-slate-500 mt-1">Simulates blocking if full.</p>
+                    </div>
+                )}
+                
+                {selectedNode.data.type === NodeType.SOURCE && (
+                   <div>
+                       <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">Arrival Interval (sec)</label>
+                       <input
+                         type="number"
+                         min="1"
+                         className="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-slate-200 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                         value={selectedNode.data.cycleTime}
+                         onChange={(e) => handleChange('cycleTime', Number(e.target.value))}
+                       />
+                   </div>
+                )}
+
+                <div className="p-4 bg-slate-800/30 rounded border border-slate-700/50 mt-4">
+                   <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">Live Statistics</h3>
+                   <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                         <span className="block text-[10px] text-slate-500">Total processed</span>
+                         <span className="font-mono text-slate-200">{selectedNode.data.stats?.totalProcessed || 0}</span>
+                      </div>
+                      <div>
+                         <span className="block text-[10px] text-slate-500">Avg Utilization</span>
+                         <span className="font-mono text-slate-200">{(selectedNode.data.stats?.utilization || 0).toFixed(1)}%</span>
+                      </div>
+                      <div>
+                         <span className="block text-[10px] text-slate-500">Blocked Time</span>
+                         <span className="font-mono text-red-400">{(selectedNode.data.stats?.blockedTime || 0).toFixed(1)}s</span>
+                      </div>
+                   </div>
                 </div>
               </div>
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
-              <Zap size={48} className="text-slate-600" strokeWidth={1} />
+              <Settings size={48} className="text-slate-600" strokeWidth={1} />
               <div>
-                <p className="text-slate-400 font-medium">No Selection</p>
-                <p className="text-slate-600 text-sm mt-1">Select a workstation to edit properties.</p>
+                <p className="text-slate-400 font-medium">Select a Node</p>
+                <p className="text-slate-600 text-sm mt-1">Click a station to edit properties.</p>
               </div>
             </div>
           )
-        ) : (
-          <div className="space-y-6">
-             <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
+        )}
+        
+        {activeTab === 'analysis' && (
+           <div className="space-y-6">
+                <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
                 <div className="flex items-center gap-2 mb-2">
-                   <Zap className="text-purple-500" size={18} />
-                   <h3 className="font-bold text-slate-200">AI Optimization</h3>
+                    <Zap className="text-purple-500" size={18} />
+                    <h3 className="font-bold text-slate-200">AI Optimization</h3>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                   Use Gemini to analyze your production line layout, identify bottlenecks, and suggest Six Sigma improvements.
+                    Use Gemini to analyze your production line layout, identify bottlenecks, and suggest Six Sigma improvements.
                 </p>
                 <button 
-                  onClick={onAnalyze}
-                  className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-semibold shadow-lg shadow-purple-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    onClick={onAnalyze}
+                    className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-semibold shadow-lg shadow-purple-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
-                   Analyze Flow
-                   <Zap size={16} className="fill-white" />
+                    Analyze Flow
+                    <Zap size={16} className="fill-white" />
                 </button>
-             </div>
-
-             <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700/50 opacity-60 pointer-events-none">
-                 <div className="flex items-center gap-2 mb-2">
-                    <BarChart3 className="text-emerald-500" size={18} />
-                    <h3 className="font-bold text-slate-200">Live Metrics</h3>
-                 </div>
-                 <p className="text-xs text-slate-400">Run simulation to gather real-time data.</p>
-             </div>
-          </div>
+                </div>
+           </div>
         )}
       </div>
     </div>

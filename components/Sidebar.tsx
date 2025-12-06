@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NodeType } from '../types';
-import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download } from 'lucide-react';
 
 interface SidebarProps {
   simulationTime: number;
@@ -10,6 +10,7 @@ interface SidebarProps {
   onLayout: () => void;
   throughput: number;
   wipItems: number;
+  onExport: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -19,7 +20,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onReset,
   onLayout,
   throughput,
-  wipItems
+  wipItems,
+  onExport
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -30,12 +32,19 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const items = [
-    { type: NodeType.SOURCE, label: 'Source', desc: 'Raw material input', icon: <Play size={20} className="fill-current" />, color: 'text-blue-400', border: 'border-blue-500/30 hover:border-blue-500' },
-    { type: NodeType.PROCESS, label: 'Process', desc: 'Value-add step', icon: <Factory size={20} />, color: 'text-emerald-400', border: 'border-emerald-500/30 hover:border-emerald-500' },
-    { type: NodeType.INVENTORY, label: 'Buffer', desc: 'Inventory storage', icon: <Box size={20} />, color: 'text-amber-400', border: 'border-amber-500/30 hover:border-amber-500' },
-    { type: NodeType.QUALITY, label: 'Quality', desc: 'Inspection step', icon: <ClipboardCheck size={20} />, color: 'text-purple-400', border: 'border-purple-500/30 hover:border-purple-500' },
-    { type: NodeType.SHIPPING, label: 'Customer', desc: 'Final output', icon: <ArrowRight size={20} />, color: 'text-indigo-400', border: 'border-indigo-500/30 hover:border-indigo-500' },
+    { type: NodeType.SOURCE, label: 'Source', desc: 'Generates entities', icon: <Play size={20} className="fill-current" />, color: 'text-blue-400', border: 'border-blue-500/30 hover:border-blue-500' },
+    { type: NodeType.PROCESS, label: 'Process', desc: 'Machine/Workstation', icon: <Factory size={20} />, color: 'text-emerald-400', border: 'border-emerald-500/30 hover:border-emerald-500' },
+    { type: NodeType.INVENTORY, label: 'Buffer', desc: 'Limited capacity storage', icon: <Box size={20} />, color: 'text-amber-400', border: 'border-amber-500/30 hover:border-amber-500' },
+    { type: NodeType.QUALITY, label: 'Inspection', desc: 'Quality Check point', icon: <ClipboardCheck size={20} />, color: 'text-purple-400', border: 'border-purple-500/30 hover:border-purple-500' },
+    { type: NodeType.SHIPPING, label: 'Shipping', desc: 'Exit point', icon: <ArrowRight size={20} />, color: 'text-indigo-400', border: 'border-indigo-500/30 hover:border-indigo-500' },
   ];
+
+  const formatTime = (seconds: number) => {
+     const h = Math.floor(seconds / 3600);
+     const m = Math.floor((seconds % 3600) / 60);
+     const s = Math.floor(seconds % 60);
+     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div 
@@ -129,36 +138,25 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <Network size={18} />
                 {!isCollapsed && <span className="text-sm font-medium">Auto Layout</span>}
              </button>
+             
+             <button 
+                onClick={onExport}
+                className={`bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 hover:border-emerald-500/50 rounded border border-slate-700 transition-all flex items-center justify-center gap-2
+                   ${isCollapsed ? 'p-3 w-full aspect-square' : 'py-2 px-3'}
+                `}
+                title="Export Data"
+             >
+                <Download size={18} />
+                {!isCollapsed && <span className="text-sm font-medium">Export CSV</span>}
+             </button>
            </div>
            
            {!isCollapsed && (
-             <div className="mt-3 text-center text-xs text-slate-500 font-mono">
-                Time: {simulationTime}s | Speed: 1x
+             <div className="mt-3 text-center text-xs text-slate-500 font-mono bg-slate-900 rounded py-1">
+                {formatTime(simulationTime)}
              </div>
            )}
         </div>
-      </div>
-
-      {/* Footer Stats */}
-      <div className="p-4 bg-slate-900 border-t border-slate-800">
-         {!isCollapsed ? (
-            <>
-               <div className="flex justify-between items-center text-sm mb-2">
-                  <span className="text-slate-400">Throughput:</span>
-                  <span className="text-emerald-400 font-mono">{throughput.toFixed(1)} /min</span>
-               </div>
-               <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400">WIP Items:</span>
-                  <span className="text-amber-400 font-mono">{wipItems}</span>
-               </div>
-            </>
-         ) : (
-            <div className="flex flex-col gap-2 items-center">
-               <div className="text-emerald-400 font-mono text-xs" title="Throughput">{throughput.toFixed(0)}</div>
-               <div className="h-px w-8 bg-slate-800"></div>
-               <div className="text-amber-400 font-mono text-xs" title="WIP">{wipItems}</div>
-            </div>
-         )}
       </div>
     </div>
   );

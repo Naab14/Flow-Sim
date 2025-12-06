@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { NodeData, NodeType } from '../types';
 import { NODE_TYPES_CONFIG } from '../constants';
-import { Factory, Box, ClipboardCheck, Play, ArrowRight, Database, AlertCircle, Ban, Hourglass } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, Play, ArrowRight, Database, Ban, Hourglass, BarChart2 } from 'lucide-react';
 
 const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
   const config = NODE_TYPES_CONFIG[data.type];
@@ -19,15 +19,15 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
   };
 
   const getStatusStyles = () => {
-    if (selected) return 'border-white shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-[1.02] z-10';
+    if (selected) return 'border-white shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-[1.02] z-30';
     
     switch (data.status) {
       case 'active':
         return 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]';
       case 'blocked':
-        return 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] bg-red-950/30';
+        return 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] bg-red-950/20';
       case 'starved':
-        return 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] bg-amber-950/30 opacity-90';
+        return 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] bg-amber-950/20 opacity-90';
       case 'idle':
       default:
         return 'border-slate-700 hover:border-slate-500';
@@ -42,16 +42,20 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
 
   const isSource = data.type === NodeType.SOURCE;
   const isSink = data.type === NodeType.SHIPPING;
+  const isInventory = data.type === NodeType.INVENTORY;
 
   return (
-    <div className={`relative min-w-[180px] bg-slate-900/90 backdrop-blur-md rounded-lg border-2 transition-all duration-300 overflow-visible group
+    <div className={`relative min-w-[200px] bg-slate-900/90 backdrop-blur-md rounded-lg border-2 transition-all duration-300 overflow-visible group
       ${getStatusStyles()}
     `}>
-      {/* Background Glow for status */}
-      {data.status === 'active' && (
-        <div className={`absolute inset-0 opacity-10 pointer-events-none ${config.color.replace('border', 'bg')} animate-pulse`}></div>
+      {/* Queue Badge */}
+      {!isSource && data.stats && data.stats.queueLength > 0 && (
+          <div className="absolute -top-3 -left-3 z-40 bg-blue-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg">
+             {data.stats.queueLength}
+          </div>
       )}
-      
+
+      {/* Handles */}
       {!isSource && (
         <Handle
           type="target"
@@ -84,22 +88,30 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
           `}></div>
         </div>
 
-        {/* Stats Grid */}
+        {/* Real-time KPI Grid */}
         <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-          <div className={`p-1.5 rounded border transition-colors ${data.inventory > 50 ? 'bg-amber-900/20 border-amber-800/50' : 'bg-slate-800/50 border-slate-700/50'}`}>
-            <span className="text-slate-400 block text-[10px]">Inv</span>
-            <span className={`font-mono font-medium ${data.inventory > 50 ? 'text-amber-400' : 'text-slate-200'}`}>{data.inventory}</span>
+          {/* Inventory / Queue */}
+          <div className={`p-1.5 rounded border transition-colors ${data.stats?.queueLength > 5 ? 'bg-amber-900/20 border-amber-800/50' : 'bg-slate-800/50 border-slate-700/50'}`}>
+            <span className="text-slate-400 block text-[10px]">{isInventory ? 'Stock' : 'Queue'}</span>
+            <span className={`font-mono font-medium ${data.stats?.queueLength > 5 ? 'text-amber-400' : 'text-slate-200'}`}>
+                {data.stats ? data.stats.queueLength : 0}
+            </span>
           </div>
+          
+          {/* Utilization / Output */}
           <div className="bg-slate-800/50 p-1.5 rounded border border-slate-700/50">
-            <span className="text-slate-400 block text-[10px]">Done</span>
-            <span className="text-slate-200 font-mono font-medium">{data.processed}</span>
+            <span className="text-slate-400 block text-[10px]">{isSource || isSink ? 'Total' : 'Util %'}</span>
+            <span className="text-slate-200 font-mono font-medium">
+                {isSource || isSink 
+                   ? (data.stats?.totalProcessed || 0) 
+                   : `${(data.stats?.utilization || 0).toFixed(0)}%`}
+            </span>
           </div>
         </div>
 
         {/* Progress Bar */}
         {(data.type === NodeType.PROCESS || data.type === NodeType.QUALITY) && (
           <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden relative">
-             {/* Striped background for blocked state */}
              {data.status === 'blocked' && (
                 <div className="absolute inset-0 w-full h-full bg-[linear-gradient(45deg,transparent_25%,rgba(239,68,68,0.2)_25%,rgba(239,68,68,0.2)_50%,transparent_50%,transparent_75%,rgba(239,68,68,0.2)_75%,rgba(239,68,68,0.2)_100%)] bg-[length:10px_10px]"></div>
              )}
@@ -108,7 +120,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
                  ${data.status === 'blocked' ? 'bg-red-500 w-full' : 
                    data.status === 'starved' ? 'bg-amber-500' : 'bg-blue-500'}
               `}
-              style={{ width: `${data.status === 'blocked' ? 100 : data.progress}%` }}
+              style={{ width: `${data.status === 'blocked' ? 100 : data.status === 'starved' ? 0 : 100}%`, opacity: data.status === 'active' ? 1 : 0.5 }}
             />
           </div>
         )}

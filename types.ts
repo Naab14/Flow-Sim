@@ -8,18 +8,40 @@ export enum NodeType {
   SHIPPING = 'shipping',
 }
 
+export interface Entity {
+  id: string;
+  createdAt: number;
+  completedAt?: number;
+  path: string[]; // List of Node IDs visited
+  currentLocation: string; // Node ID or Edge ID
+  state: 'queued' | 'processing' | 'moving' | 'completed';
+  type: 'good' | 'defect';
+  progress: number; // 0-1 for moving/processing
+}
+
+export interface StationStats {
+  totalProcessed: number;
+  totalGenerated?: number; // For source
+  busyTime: number;
+  blockedTime: number;
+  starvedTime: number;
+  utilization: number; // 0-100%
+  queueLength: number;
+  avgCycleTime: number;
+}
+
 export interface NodeData {
   label: string;
   type: NodeType;
-  cycleTime: number; // in seconds
-  defectRate: number; // in percentage (0-100)
-  batchSize: number; // units
-  capacity: number; // units per hour (calculated or fixed)
-  // Simulation State
-  inventory: number;
-  processed: number;
+  cycleTime: number; // seconds
+  defectRate: number; // %
+  batchSize: number;
+  capacity: number; // Max concurrent units (or storage size for inventory)
+  
+  // Simulation State (Real-time)
+  stats: StationStats;
   status: 'active' | 'idle' | 'blocked' | 'starved';
-  progress: number; // 0-100 for current cycle
+  progress: number; // 0-100%
 }
 
 export type AppNode = Node<NodeData>;
@@ -27,14 +49,17 @@ export type AppEdge = Edge;
 
 export interface SimulationResult {
   bottleneckNodeId: string | null;
-  maxThroughput: number; // units per hour
-  totalCycleTime: number; // seconds (critical path)
-  yield: number; // percentage
+  maxThroughput: number;
+  totalCycleTime: number;
+  yield: number;
   suggestions: string[];
   analysisText: string;
 }
 
-export interface AnalysisRequest {
-  nodes: AppNode[];
-  edges: AppEdge[];
+export interface GlobalStats {
+  throughput: number; // Units per minute (rolling avg)
+  wip: number;
+  averageLeadTime: number; // Seconds
+  completedCount: number;
+  oee: number; // Overall Equipment Effectiveness (Global proxy)
 }
