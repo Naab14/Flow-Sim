@@ -34,6 +34,11 @@ export class Simulator {
     this.eventIdCounter = 0;
   }
 
+  // Getter for current simulation time (avoids bracket notation hack in App.tsx)
+  public getCurrentTime(): number {
+    return this.currentTime;
+  }
+
   public initialize(nodes: AppNode[], edges: AppEdge[]) {
     this.currentTime = 0;
     this.eventQueue.clear();
@@ -334,12 +339,22 @@ export class Simulator {
   }
 
   public getGlobalStats(): GlobalStats {
+      // WIP = entities currently in the system (not yet completed/shipped)
+      // Manufacturing analogy: Count every part physically on the floor
+      const wip = [...this.entities.values()].filter(e => e.state !== 'completed').length;
+
+      // Throughput = completed units per minute (rolling 60-second window)
+      const throughput = this.processedWindow.length;
+
+      // Completed count = total units shipped since start
+      const completedCount = [...this.entities.values()].filter(e => e.state === 'completed').length;
+
       return {
-          throughput: this.processedWindow.length, // Per minute (window is 60s)
-          wip: this.entities.size - this.nodes.get('shipped')?.stats.totalProcessed! || 0, // Approx
+          throughput,
+          wip,
           averageLeadTime: 0,
-          completedCount: this.processedWindow.length, // Window only, but ok for now
-          oee: 0 // Placeholder
+          completedCount,
+          oee: 0 // Placeholder - will calculate properly in Day 2
       };
   }
 }
