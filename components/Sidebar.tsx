@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NodeType } from '../types';
-import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer } from 'lucide-react';
 
 interface SidebarProps {
   simulationTime: number;
@@ -13,6 +13,9 @@ interface SidebarProps {
   onExport: () => void;
   simulationSpeed: number;
   onSpeedChange: (speed: number) => void;
+  warmupTime: number;
+  onWarmupChange: (time: number) => void;
+  isWarmedUp: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -25,7 +28,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   wipItems,
   onExport,
   simulationSpeed,
-  onSpeedChange
+  onSpeedChange,
+  warmupTime,
+  onWarmupChange,
+  isWarmedUp
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -156,6 +162,43 @@ const Sidebar: React.FC<SidebarProps> = ({
                      </button>
                    ))}
                  </div>
+               </div>
+             )}
+
+             {/* Warm-up Time Control */}
+             {!isCollapsed && (
+               <div className="mt-2">
+                 <div className="flex items-center justify-between mb-1.5">
+                   <div className="flex items-center gap-2">
+                     <Timer size={14} className="text-slate-500" />
+                     <span className="text-xs text-slate-500 font-semibold uppercase">Warm-up</span>
+                   </div>
+                   {isWarmedUp ? (
+                     <span className="text-[10px] text-emerald-400 font-semibold">READY</span>
+                   ) : warmupTime > 0 ? (
+                     <span className="text-[10px] text-amber-400 font-semibold animate-pulse">WARMING</span>
+                   ) : null}
+                 </div>
+                 <div className="flex gap-1">
+                   {[0, 30, 60, 120].map(time => (
+                     <button
+                       key={time}
+                       onClick={() => onWarmupChange(time)}
+                       disabled={isPlaying}
+                       className={`flex-1 py-1.5 text-xs font-bold rounded transition-all
+                         ${warmupTime === time
+                           ? 'bg-amber-600 text-white shadow-[0_0_10px_rgba(245,158,11,0.4)]'
+                           : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700'
+                         }
+                         ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}
+                       `}
+                       title={time === 0 ? 'No warm-up' : `${time}s warm-up period`}
+                     >
+                       {time === 0 ? 'Off' : `${time}s`}
+                     </button>
+                   ))}
+                 </div>
+                 <p className="text-[10px] text-slate-600 mt-1">Stats reset after warm-up</p>
                </div>
              )}
              

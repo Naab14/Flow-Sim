@@ -71,6 +71,8 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationTime, setSimulationTime] = useState(0);
   const [simulationSpeed, setSimulationSpeed] = useState(5); // 1x, 2x, 5x, 10x
+  const [warmupTime, setWarmupTime] = useState(0); // Warm-up period in seconds
+  const [isWarmedUp, setIsWarmedUp] = useState(false);
   const [globalStats, setGlobalStats] = useState<GlobalStats & { history: HistoryPoint[] }>({
     throughput: 0,
     throughputPerMinute: 0,
@@ -181,17 +183,45 @@ const App: React.FC = () => {
     );
   }, [setNodes, selectedNode]);
 
-  // Handle Export CSV
+  // Handle Export CSV - Enhanced with all KPI metrics
   const handleExport = () => {
-     const headers = "Time,Throughput,WIP,Throughput(Avg)\n";
-     const rows = simulator.history.map(row => 
-        `${row.time.toFixed(1)},${row.throughput},${row.wip},${row.throughput}`
+     // Time series data
+     const timeHeaders = "Time (s),Throughput (u/min),WIP,OEE (%)\n";
+     const timeRows = simulator.history.map(row =>
+        `${row.time.toFixed(1)},${row.throughput},${row.wip},${row.oee.toFixed(1)}`
      ).join("\n");
-     const csvContent = "data:text/csv;charset=utf-8," + headers + rows;
+
+     // Summary stats section
+     const summarySection = [
+       "",
+       "--- SUMMARY ---",
+       `Simulation Duration (s),${simulationTime.toFixed(1)}`,
+       `Warm-up Period (s),${warmupTime}`,
+       "",
+       "--- KPI METRICS ---",
+       `Throughput (u/hr),${globalStats.throughput.toFixed(1)}`,
+       `Throughput (u/min window),${globalStats.throughputPerMinute}`,
+       `WIP (units),${globalStats.wip}`,
+       `Avg Lead Time (s),${globalStats.averageLeadTime.toFixed(1)}`,
+       `Completed Count,${globalStats.completedCount}`,
+       `Total Generated,${globalStats.totalGenerated}`,
+       "",
+       "--- OEE BREAKDOWN ---",
+       `OEE (%),${globalStats.oee.toFixed(1)}`,
+       `Availability (%),${globalStats.availability.toFixed(1)}`,
+       `Performance (%),${globalStats.performance.toFixed(1)}`,
+       `Quality (%),${globalStats.quality.toFixed(1)}`,
+       "",
+       "--- BOTTLENECK ---",
+       `Bottleneck Node,${globalStats.bottleneckNodeId || 'None'}`,
+       `Bottleneck Utilization (%),${globalStats.bottleneckUtilization.toFixed(1)}`
+     ].join("\n");
+
+     const csvContent = "data:text/csv;charset=utf-8," + timeHeaders + timeRows + "\n" + summarySection;
      const encodedUri = encodeURI(csvContent);
      const link = document.createElement("a");
      link.setAttribute("href", encodedUri);
-     link.setAttribute("download", "simulation_data.csv");
+     link.setAttribute("download", `leanflow_report_${new Date().toISOString().slice(0,10)}.csv`);
      document.body.appendChild(link);
      link.click();
      document.body.removeChild(link);
@@ -215,7 +245,9 @@ const App: React.FC = () => {
   const handleReset = () => {
       setIsPlaying(false);
       setSimulationTime(0);
+      setIsWarmedUp(false);
       simulator.initialize(nodes as AppNode[], edges);
+      simulator.setWarmupTime(warmupTime); // Apply current warmup setting
       setMovingEntities([]);
       setGlobalStats({
         throughput: 0,
@@ -245,6 +277,7 @@ const App: React.FC = () => {
     // Initialize only if fresh start
     if (simulationTime === 0) {
         simulator.initialize(nodes as AppNode[], edges);
+        simulator.setWarmupTime(warmupTime); // Set warm-up period
     }
 
     let lastTime = performance.now();
@@ -262,6 +295,9 @@ const App: React.FC = () => {
         const updateResult = simulator.update(dt * speedFactor);
 
         setSimulationTime(t => t + dt * speedFactor);
+
+        // Track warm-up status from simulator
+        setIsWarmedUp(simulator.getIsWarmedUp());
 
         // Sync React State (every frame for smooth visualization)
         // 1. Update Nodes Visuals
@@ -294,7 +330,7 @@ const App: React.FC = () => {
 
     frameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frameId);
-  }, [isPlaying, edges, simulationSpeed]); // Re-run if speed changes
+  }, [isPlaying, edges, simulationSpeed, warmupTime]); // Re-run if speed or warmup changes
 
   // Render Moving Entities Overlay
   const renderEntities = () => {
@@ -344,6 +380,9 @@ const App: React.FC = () => {
            onExport={handleExport}
            simulationSpeed={simulationSpeed}
            onSpeedChange={setSimulationSpeed}
+           warmupTime={warmupTime}
+           onWarmupChange={setWarmupTime}
+           isWarmedUp={isWarmedUp}
         />
         
         {/* Center Canvas */}
@@ -400,6 +439,9 @@ const App: React.FC = () => {
            onAnalyze={handleRunAnalysis}
            simulationData={globalStats}
            nodes={nodes as AppNode[]}
+           simulationTime={simulationTime}
+           warmupTime={warmupTime}
+           isWarmedUp={isWarmedUp}
         />
       </ReactFlowProvider>
 

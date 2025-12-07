@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AppNode, NodeType, GlobalStats, HistoryPoint } from '../types';
-import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders, Activity, Clock, Layers, Target, AlertTriangle, TrendingUp, Gauge } from 'lucide-react';
+import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders, Activity, Clock, Layers, Target, AlertTriangle, TrendingUp, Gauge, Timer } from 'lucide-react';
 import KPIChart from './KPIChart';
 
 interface RightSidebarProps {
@@ -9,11 +9,26 @@ interface RightSidebarProps {
   onAnalyze: () => void;
   simulationData: GlobalStats & { history: HistoryPoint[] };
   nodes: AppNode[];
+  simulationTime?: number;
+  warmupTime?: number;
+  isWarmedUp?: boolean;
 }
 
-const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onAnalyze, simulationData, nodes }) => {
+const RightSidebar: React.FC<RightSidebarProps> = ({
+  selectedNode,
+  onChange,
+  onAnalyze,
+  simulationData,
+  nodes,
+  simulationTime = 0,
+  warmupTime = 0,
+  isWarmedUp = true
+}) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'properties' | 'analysis'>('dashboard');
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Calculate warm-up progress
+  const warmupProgress = warmupTime > 0 ? Math.min((simulationTime / warmupTime) * 100, 100) : 100;
 
   // Find bottleneck node name
   const bottleneckNode = nodes.find(n => n.id === simulationData.bottleneckNodeId);
@@ -96,6 +111,34 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onA
                     <span className="text-xs text-slate-500 font-mono animate-pulse">● LIVE</span>
                 </div>
 
+                {/* Warm-up Progress Indicator */}
+                {warmupTime > 0 && !isWarmedUp && (
+                  <div className="bg-amber-900/30 border border-amber-700/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Timer className="text-amber-400 animate-pulse" size={16} />
+                      <span className="text-xs font-bold text-amber-300">Warm-up in Progress</span>
+                      <span className="text-xs text-amber-400/70 ml-auto">
+                        {Math.max(0, warmupTime - simulationTime).toFixed(0)}s remaining
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-1.5">
+                      <div
+                        className="bg-amber-500 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${warmupProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-amber-500/60 mt-1">Stats will reset after warm-up completes</p>
+                  </div>
+                )}
+
+                {/* Warm-up Complete Notification (shows briefly) */}
+                {warmupTime > 0 && isWarmedUp && simulationTime < warmupTime + 10 && (
+                  <div className="bg-emerald-900/30 border border-emerald-700/50 rounded-lg p-3 flex items-center gap-2">
+                    <Timer className="text-emerald-400" size={16} />
+                    <span className="text-xs font-bold text-emerald-300">Warm-up Complete - Stats Recording</span>
+                  </div>
+                )}
+
                 {/* Bottleneck Alert */}
                 {bottleneckNode && simulationData.bottleneckUtilization > 80 && (
                   <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-3 flex items-center gap-3">
@@ -130,6 +173,10 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onA
                         <span className="text-slate-500 block">Quality</span>
                         <span className="font-mono text-purple-400">{simulationData.quality.toFixed(1)}%</span>
                       </div>
+                    </div>
+                    {/* OEE Chart */}
+                    <div className="mt-3">
+                      <KPIChart data={simulationData.history} dataKey="oee" color="#3b82f6" label="OEE %" />
                     </div>
                 </div>
 
