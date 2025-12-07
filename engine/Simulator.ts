@@ -1,5 +1,5 @@
 import { PriorityQueue, SimEvent } from './PriorityQueue';
-import { AppNode, AppEdge, Entity, NodeType, StationStats, GlobalStats } from '../types';
+import { AppNode, AppEdge, Entity, NodeType, StationStats, GlobalStats, HistoryPoint } from '../types';
 
 interface NodeState {
   queue: Entity[];
@@ -22,13 +22,18 @@ export class Simulator {
   private eventIdCounter: number;
 
   // Historical Data for Charts
-  public history: { time: number; throughput: number; wip: number }[] = [];
+  public history: HistoryPoint[] = [];
   private processedWindow: number[] = []; // Timestamps of completion
+  private cycleTimeSamples: number[] = []; // Completed entity cycle times (for avg calculation)
+  private lastHistoryTime: number = 0; // Track when we last recorded history
 
   // Warm-up period: Discard stats before this time (seconds)
   // Manufacturing analogy: Let production line reach steady state before measuring
   private warmupTime: number = 0;
   private isWarmedUp: boolean = false;
+
+  // Speed multiplier for simulation (1x, 2x, 5x, 10x)
+  private speedMultiplier: number = 1;
 
   constructor() {
     this.eventQueue = new PriorityQueue();
@@ -63,6 +68,15 @@ export class Simulator {
     return this.isWarmedUp;
   }
 
+  // Speed control methods
+  public setSpeedMultiplier(multiplier: number): void {
+    this.speedMultiplier = Math.max(0.1, Math.min(100, multiplier));
+  }
+
+  public getSpeedMultiplier(): number {
+    return this.speedMultiplier;
+  }
+
   public initialize(nodes: AppNode[], edges: AppEdge[]) {
     this.currentTime = 0;
     this.eventQueue.clear();
@@ -73,6 +87,8 @@ export class Simulator {
     this.movingEntities = [];
     this.history = [];
     this.processedWindow = [];
+    this.cycleTimeSamples = [];
+    this.lastHistoryTime = 0;
     this.isWarmedUp = false; // Reset warm-up status
 
     // Setup Nodes
@@ -238,10 +254,20 @@ export class Simulator {
         state.processing.push(entity);
         entity.state = 'processing';
 
-        // Calculate Processing Time
-        let procTime = state.config.cycleTime;
+        // Calculate Processing Time with variability
+        // Manufacturing analogy: Real machines have variation due to operator skill,
+        // material differences, and equipment condition
+        let procTime = state.config.cycleTime || 0;
         if (state.config.type === NodeType.INVENTORY) {
           procTime = 0.1; // Fast pass through buffer (just a holding area)
+        } else {
+          // Apply variability if configured (uniform distribution within ±variation%)
+          const variation = state.config.cycleTimeVariation || 0;
+          if (variation > 0) {
+            // Random factor between (1 - variation%) and (1 + variation%)
+            const variationFactor = 1 + ((Math.random() * 2 - 1) * variation / 100);
+            procTime = procTime * variationFactor;
+          }
         }
 
         this.scheduleEvent(procTime, 'PROCESS_END', nodeId, entity.id);
@@ -277,6 +303,18 @@ export class Simulator {
       entity.state = 'completed';
       entity.completedAt = this.currentTime;
       this.processedWindow.push(this.currentTime);
+
+      // Track cycle time (lead time) for this entity
+      // Manufacturing analogy: Time from order entry to shipment
+      if (entity.type === 'good') {
+        const cycleTime = this.currentTime - entity.createdAt;
+        this.cycleTimeSamples.push(cycleTime);
+        // Keep last 100 samples for moving average
+        if (this.cycleTimeSamples.length > 100) {
+          this.cycleTimeSamples.shift();
+        }
+      }
+
       this.tryStartProcess(nodeId);
       return;
     }
@@ -488,22 +526,124 @@ export class Simulator {
   }
 
   public getGlobalStats(): GlobalStats {
-      // WIP = entities currently in the system (not yet completed/shipped)
-      // Manufacturing analogy: Count every part physically on the floor
-      const wip = [...this.entities.values()].filter(e => e.state !== 'completed').length;
+    // WIP = entities currently in the system (not yet completed/shipped)
+    // Manufacturing analogy: Count every part physically on the floor
+    const wip = [...this.entities.values()].filter(e => e.state !== 'completed').length;
 
-      // Throughput = completed units per minute (rolling 60-second window)
-      const throughput = this.processedWindow.length;
+    // Throughput calculations
+    // Rolling window (last 60 seconds) - units per minute
+    const throughputPerMinute = this.processedWindow.length;
 
-      // Completed count = total units shipped since start
-      const completedCount = [...this.entities.values()].filter(e => e.state === 'completed').length;
+    // Rate-based throughput (units per hour)
+    // Manufacturing analogy: If we've completed X units in Y hours, rate = X/Y * 3600
+    const completedEntities = [...this.entities.values()].filter(e => e.state === 'completed');
+    const completedCount = completedEntities.length;
+    const goodCount = completedEntities.filter(e => e.type === 'good').length;
 
-      return {
-          throughput,
-          wip,
-          averageLeadTime: 0,
-          completedCount,
-          oee: 0 // Placeholder - will calculate properly in Day 2
-      };
+    const effectiveTime = this.warmupTime > 0
+      ? Math.max(this.currentTime - this.warmupTime, 1)
+      : Math.max(this.currentTime, 1);
+    const throughputPerHour = (completedCount / effectiveTime) * 3600;
+
+    // Total generated (from source nodes)
+    let totalGenerated = 0;
+    this.nodes.forEach(state => {
+      if (state.config.type === NodeType.SOURCE) {
+        totalGenerated += state.stats.totalGenerated || 0;
+      }
+    });
+
+    // Average lead time (cycle time from creation to completion)
+    const averageLeadTime = this.cycleTimeSamples.length > 0
+      ? this.cycleTimeSamples.reduce((a, b) => a + b, 0) / this.cycleTimeSamples.length
+      : 0;
+
+    // Find bottleneck (highest utilization process node)
+    // Manufacturing analogy: The constraint that limits overall throughput
+    let bottleneckNodeId: string | null = null;
+    let bottleneckUtilization = 0;
+
+    this.nodes.forEach((state, nodeId) => {
+      // Only consider process and quality nodes as potential bottlenecks
+      if (state.config.type === NodeType.PROCESS || state.config.type === NodeType.QUALITY) {
+        if (state.stats.utilization > bottleneckUtilization) {
+          bottleneckUtilization = state.stats.utilization;
+          bottleneckNodeId = nodeId;
+        }
+      }
+    });
+
+    // OEE Calculation (Overall Equipment Effectiveness)
+    // OEE = Availability × Performance × Quality
+    // Manufacturing analogy: The gold standard metric for equipment effectiveness
+
+    // Availability = (Run Time - Downtime) / Run Time
+    // For simulation: (busyTime + blockedTime) / totalTime (blocked counts as "running but waiting")
+    let totalBusyTime = 0;
+    let totalBlockedTime = 0;
+    let totalStarvedTime = 0;
+    let processNodeCount = 0;
+
+    this.nodes.forEach(state => {
+      if (state.config.type === NodeType.PROCESS || state.config.type === NodeType.QUALITY) {
+        totalBusyTime += state.stats.busyTime;
+        totalBlockedTime += state.stats.blockedTime;
+        totalStarvedTime += state.stats.starvedTime;
+        processNodeCount++;
+      }
+    });
+
+    const totalRunTime = processNodeCount * effectiveTime;
+    const availability = totalRunTime > 0
+      ? ((totalBusyTime + totalBlockedTime) / totalRunTime) * 100
+      : 100;
+
+    // Performance = (Ideal Cycle Time × Total Count) / Run Time
+    // Simplified: actual throughput vs theoretical max
+    const performance = Math.min(100, (throughputPerMinute / Math.max(1, processNodeCount)) * 10);
+
+    // Quality = Good Count / Total Count
+    const quality = completedCount > 0
+      ? (goodCount / completedCount) * 100
+      : 100;
+
+    // OEE = A × P × Q (as percentages, so divide by 10000)
+    const oee = (availability * performance * quality) / 10000;
+
+    // Record history point every 5 seconds of simulation time
+    if (this.currentTime - this.lastHistoryTime >= 5) {
+      this.history.push({
+        time: this.currentTime,
+        throughput: throughputPerMinute,
+        wip,
+        oee
+      });
+      this.lastHistoryTime = this.currentTime;
+
+      // Keep last 200 history points (about 16 minutes of sim time)
+      if (this.history.length > 200) {
+        this.history.shift();
+      }
+    }
+
+    return {
+      throughput: Math.round(throughputPerHour * 10) / 10,
+      throughputPerMinute,
+      wip,
+      averageLeadTime: Math.round(averageLeadTime * 10) / 10,
+      completedCount,
+      totalGenerated,
+      oee: Math.round(oee * 10) / 10,
+      availability: Math.round(availability * 10) / 10,
+      performance: Math.round(performance * 10) / 10,
+      quality: Math.round(quality * 10) / 10,
+      bottleneckNodeId,
+      bottleneckUtilization: Math.round(bottleneckUtilization * 10) / 10
+    };
+  }
+
+  // Get node states for external access (e.g., for utilization chart)
+  public getNodeStates(): Map<string, NodeState> {
+    return this.nodes;
   }
 }

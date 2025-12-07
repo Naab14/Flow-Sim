@@ -21,9 +21,10 @@ import RightSidebar from './components/RightSidebar';
 import CustomNode from './components/CustomNode';
 import AnalysisModal from './components/AnalysisModal';
 import { INITIAL_NODES, INITIAL_EDGES, NODE_TYPES_CONFIG } from './constants';
-import { AppNode, NodeType, SimulationResult, Entity } from './types';
+import { AppNode, NodeType, SimulationResult, Entity, GlobalStats, HistoryPoint } from './types';
 import { analyzeFlow } from './services/geminiService';
 import { Simulator } from './engine/Simulator';
+import { useTheme } from './contexts/ThemeContext';
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => {
   const dagreGraph = new dagre.graphlib.Graph();
@@ -61,6 +62,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 const simulator = new Simulator();
 
 const App: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
   const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
@@ -70,7 +72,24 @@ const App: React.FC = () => {
   // Simulation State
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationTime, setSimulationTime] = useState(0);
-  const [globalStats, setGlobalStats] = useState({ throughput: 0, wip: 0, history: [] as any[] });
+  const [simulationSpeed, setSimulationSpeed] = useState(5); // 1x, 2x, 5x, 10x
+  const [warmupTime, setWarmupTime] = useState(0); // Warm-up period in seconds
+  const [isWarmedUp, setIsWarmedUp] = useState(false);
+  const [globalStats, setGlobalStats] = useState<GlobalStats & { history: HistoryPoint[] }>({
+    throughput: 0,
+    throughputPerMinute: 0,
+    wip: 0,
+    averageLeadTime: 0,
+    completedCount: 0,
+    totalGenerated: 0,
+    oee: 0,
+    availability: 100,
+    performance: 0,
+    quality: 100,
+    bottleneckNodeId: null,
+    bottleneckUtilization: 0,
+    history: []
+  });
   
   // Visual entities
   const [movingEntities, setMovingEntities] = useState<Entity[]>([]);
@@ -123,15 +142,16 @@ const App: React.FC = () => {
         id: `node_${Date.now()}`,
         type: 'custom',
         position,
-        data: { 
-          label: label, 
-          type: type, 
-          cycleTime: type === NodeType.PROCESS ? 10 : (type === NodeType.SOURCE ? 5 : 0), 
+        data: {
+          label: label,
+          type: type,
+          cycleTime: type === NodeType.PROCESS ? 10 : (type === NodeType.SOURCE ? 5 : 0),
+          cycleTimeVariation: 0, // % variation (0 = deterministic, 10 = ±10%)
           defectRate: 0,
           batchSize: 1,
           capacity: type === NodeType.INVENTORY ? 10 : 1,
-          stats: { 
-              totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 
+          stats: {
+              totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0
           },
           status: 'idle',
           progress: 0
@@ -166,20 +186,177 @@ const App: React.FC = () => {
     );
   }, [setNodes, selectedNode]);
 
-  // Handle Export CSV
+  // Handle Export CSV - Enhanced with all KPI metrics
   const handleExport = () => {
-     const headers = "Time,Throughput,WIP,Throughput(Avg)\n";
-     const rows = simulator.history.map(row => 
-        `${row.time.toFixed(1)},${row.throughput},${row.wip},${row.throughput}`
+     // Time series data
+     const timeHeaders = "Time (s),Throughput (u/min),WIP,OEE (%)\n";
+     const timeRows = simulator.history.map(row =>
+        `${row.time.toFixed(1)},${row.throughput},${row.wip},${row.oee.toFixed(1)}`
      ).join("\n");
-     const csvContent = "data:text/csv;charset=utf-8," + headers + rows;
+
+     // Summary stats section
+     const summarySection = [
+       "",
+       "--- SUMMARY ---",
+       `Simulation Duration (s),${simulationTime.toFixed(1)}`,
+       `Warm-up Period (s),${warmupTime}`,
+       "",
+       "--- KPI METRICS ---",
+       `Throughput (u/hr),${globalStats.throughput.toFixed(1)}`,
+       `Throughput (u/min window),${globalStats.throughputPerMinute}`,
+       `WIP (units),${globalStats.wip}`,
+       `Avg Lead Time (s),${globalStats.averageLeadTime.toFixed(1)}`,
+       `Completed Count,${globalStats.completedCount}`,
+       `Total Generated,${globalStats.totalGenerated}`,
+       "",
+       "--- OEE BREAKDOWN ---",
+       `OEE (%),${globalStats.oee.toFixed(1)}`,
+       `Availability (%),${globalStats.availability.toFixed(1)}`,
+       `Performance (%),${globalStats.performance.toFixed(1)}`,
+       `Quality (%),${globalStats.quality.toFixed(1)}`,
+       "",
+       "--- BOTTLENECK ---",
+       `Bottleneck Node,${globalStats.bottleneckNodeId || 'None'}`,
+       `Bottleneck Utilization (%),${globalStats.bottleneckUtilization.toFixed(1)}`
+     ].join("\n");
+
+     const csvContent = "data:text/csv;charset=utf-8," + timeHeaders + timeRows + "\n" + summarySection;
      const encodedUri = encodeURI(csvContent);
      const link = document.createElement("a");
      link.setAttribute("href", encodedUri);
-     link.setAttribute("download", "simulation_data.csv");
+     link.setAttribute("download", `leanflow_report_${new Date().toISOString().slice(0,10)}.csv`);
      document.body.appendChild(link);
      link.click();
      document.body.removeChild(link);
+  };
+
+  // Save current scenario (nodes, edges, settings) to JSON file
+  const handleSaveScenario = () => {
+    const scenario = {
+      version: '1.0',
+      name: `LeanFlow Scenario - ${new Date().toLocaleDateString()}`,
+      createdAt: new Date().toISOString(),
+      settings: {
+        warmupTime,
+        simulationSpeed
+      },
+      nodes: nodes.map(n => ({
+        id: n.id,
+        type: n.type,
+        position: n.position,
+        data: {
+          label: n.data.label,
+          type: n.data.type,
+          cycleTime: n.data.cycleTime,
+          cycleTimeVariation: n.data.cycleTimeVariation || 0,
+          defectRate: n.data.defectRate,
+          batchSize: n.data.batchSize,
+          capacity: n.data.capacity
+        }
+      })),
+      edges: edges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: e.type
+      }))
+    };
+
+    const jsonContent = JSON.stringify(scenario, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `leanflow_scenario_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Load scenario from JSON file
+  const handleLoadScenario = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const scenario = JSON.parse(e.target?.result as string);
+
+        // Validate basic structure
+        if (!scenario.nodes || !scenario.edges) {
+          alert('Invalid scenario file: missing nodes or edges');
+          return;
+        }
+
+        // Stop simulation and reset
+        setIsPlaying(false);
+        setSimulationTime(0);
+        setIsWarmedUp(false);
+
+        // Load settings if present
+        if (scenario.settings) {
+          if (scenario.settings.warmupTime !== undefined) {
+            setWarmupTime(scenario.settings.warmupTime);
+          }
+          if (scenario.settings.simulationSpeed !== undefined) {
+            setSimulationSpeed(scenario.settings.simulationSpeed);
+          }
+        }
+
+        // Load nodes with default stats
+        const loadedNodes = scenario.nodes.map((n: any) => ({
+          ...n,
+          data: {
+            ...n.data,
+            cycleTimeVariation: n.data.cycleTimeVariation || 0,
+            stats: {
+              totalProcessed: 0,
+              busyTime: 0,
+              blockedTime: 0,
+              starvedTime: 0,
+              utilization: 0,
+              queueLength: 0,
+              avgCycleTime: 0
+            },
+            status: 'idle',
+            progress: 0
+          }
+        }));
+
+        // Load edges with styling
+        const loadedEdges = scenario.edges.map((e: any) => ({
+          ...e,
+          animated: true,
+          type: e.type || 'smoothstep',
+          style: { stroke: '#475569', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' }
+        }));
+
+        setNodes(loadedNodes);
+        setEdges(loadedEdges);
+        setMovingEntities([]);
+        setGlobalStats({
+          throughput: 0,
+          throughputPerMinute: 0,
+          wip: 0,
+          averageLeadTime: 0,
+          completedCount: 0,
+          totalGenerated: 0,
+          oee: 0,
+          availability: 100,
+          performance: 0,
+          quality: 100,
+          bottleneckNodeId: null,
+          bottleneckUtilization: 0,
+          history: []
+        });
+
+        console.log(`Loaded scenario: ${scenario.name || 'Unknown'}`);
+      } catch (error) {
+        console.error('Failed to load scenario:', error);
+        alert('Failed to load scenario file. Please check the file format.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleRunAnalysis = async () => {
@@ -200,9 +377,25 @@ const App: React.FC = () => {
   const handleReset = () => {
       setIsPlaying(false);
       setSimulationTime(0);
+      setIsWarmedUp(false);
       simulator.initialize(nodes as AppNode[], edges);
+      simulator.setWarmupTime(warmupTime); // Apply current warmup setting
       setMovingEntities([]);
-      setGlobalStats({ throughput: 0, wip: 0, history: [] });
+      setGlobalStats({
+        throughput: 0,
+        throughputPerMinute: 0,
+        wip: 0,
+        averageLeadTime: 0,
+        completedCount: 0,
+        totalGenerated: 0,
+        oee: 0,
+        availability: 100,
+        performance: 0,
+        quality: 100,
+        bottleneckNodeId: null,
+        bottleneckUtilization: 0,
+        history: []
+      });
       setNodes(nds => nds.map(n => ({
           ...n,
           data: { ...n.data, status: 'idle', progress: 0, stats: { ...n.data.stats, queueLength: 0, utilization: 0, totalProcessed: 0 } }
@@ -216,6 +409,7 @@ const App: React.FC = () => {
     // Initialize only if fresh start
     if (simulationTime === 0) {
         simulator.initialize(nodes as AppNode[], edges);
+        simulator.setWarmupTime(warmupTime); // Set warm-up period
     }
 
     let lastTime = performance.now();
@@ -225,16 +419,19 @@ const App: React.FC = () => {
         const dt = (time - lastTime) / 1000;
         lastTime = time;
 
-        // Run simulation step
-        const simStep = 0.05; // Fixed small step for stability
-        const speedFactor = 5; // 1 real sec = 5 sim sec
-        
-        // Advance physics
+        // Run simulation step with configurable speed
+        // Manufacturing analogy: Fast-forward the production day to see results quicker
+        const speedFactor = simulationSpeed; // User-controlled: 1x, 2x, 5x, 10x
+
+        // Advance simulation physics
         const updateResult = simulator.update(dt * speedFactor);
-        
+
         setSimulationTime(t => t + dt * speedFactor);
-        
-        // Sync React State (Throttled if needed, but here every frame for smoothness)
+
+        // Track warm-up status from simulator
+        setIsWarmedUp(simulator.getIsWarmedUp());
+
+        // Sync React State (every frame for smooth visualization)
         // 1. Update Nodes Visuals
         setNodes(currentNodes => currentNodes.map(n => {
             const simState = updateResult.nodes.get(n.id);
@@ -251,16 +448,12 @@ const App: React.FC = () => {
             return n;
         }));
 
-        // 2. Update Stats
-        setGlobalStats(prev => ({
+        // 2. Update Stats (use simulator's history for charts)
+        setGlobalStats({
             ...updateResult.stats,
-            history: [...prev.history, { 
-                time: simulator['currentTime'], // Accessing public via bracket if private
-                throughput: updateResult.stats.throughput,
-                wip: updateResult.stats.wip 
-            }].slice(-50) // Keep last 50 points for chart
-        }));
-        
+            history: simulator.history
+        });
+
         // 3. Update Moving Entities
         setMovingEntities(updateResult.entities);
 
@@ -269,7 +462,7 @@ const App: React.FC = () => {
 
     frameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frameId);
-  }, [isPlaying, edges]); // Re-init if topology changes? Maybe strictly on Play.
+  }, [isPlaying, edges, simulationSpeed, warmupTime]); // Re-run if speed or warmup changes
 
   // Render Moving Entities Overlay
   const renderEntities = () => {
@@ -305,18 +498,29 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#020617] overflow-hidden font-sans">
+    <div className={`flex h-screen w-screen overflow-hidden font-sans transition-colors duration-300 ${
+      theme === 'light' ? 'bg-white' : 'bg-[#020617]'
+    }`}>
       <ReactFlowProvider>
         {/* Left Sidebar */}
-        <Sidebar 
-           simulationTime={simulationTime} 
-           isPlaying={isPlaying} 
+        <Sidebar
+           simulationTime={simulationTime}
+           isPlaying={isPlaying}
            onTogglePlay={() => setIsPlaying(!isPlaying)}
            onReset={handleReset}
            onLayout={onLayout}
            throughput={globalStats.throughput}
            wipItems={globalStats.wip}
            onExport={handleExport}
+           simulationSpeed={simulationSpeed}
+           onSpeedChange={setSimulationSpeed}
+           warmupTime={warmupTime}
+           onWarmupChange={setWarmupTime}
+           isWarmedUp={isWarmedUp}
+           onSaveScenario={handleSaveScenario}
+           onLoadScenario={handleLoadScenario}
+           theme={theme}
+           onToggleTheme={toggleTheme}
         />
         
         {/* Center Canvas */}
@@ -350,10 +554,21 @@ const App: React.FC = () => {
             minZoom={0.5}
             maxZoom={2}
           >
-            <Controls className="bg-slate-800 border border-slate-700 fill-slate-300" />
-            <Background color="#1e293b" gap={24} size={1} variant={BackgroundVariant.Dots} />
-            <MiniMap 
-                className="!bg-slate-900 !border-slate-800 rounded-lg overflow-hidden"
+            <Controls className={`${theme === 'light'
+              ? 'bg-white border border-slate-200 fill-slate-600'
+              : 'bg-slate-800 border border-slate-700 fill-slate-300'
+            }`} />
+            <Background
+              color={theme === 'light' ? '#e2e8f0' : '#1e293b'}
+              gap={24}
+              size={1}
+              variant={BackgroundVariant.Dots}
+            />
+            <MiniMap
+                className={`rounded-lg overflow-hidden ${theme === 'light'
+                  ? '!bg-slate-50 !border-slate-200'
+                  : '!bg-slate-900 !border-slate-800'
+                }`}
                 nodeColor={(n) => {
                     const t = n.data?.type;
                     if (t === NodeType.SOURCE) return '#3b82f6';
@@ -367,11 +582,16 @@ const App: React.FC = () => {
         </div>
 
         {/* Right Sidebar */}
-        <RightSidebar 
-           selectedNode={selectedNode} 
+        <RightSidebar
+           selectedNode={selectedNode}
            onChange={updateNodeData}
            onAnalyze={handleRunAnalysis}
            simulationData={globalStats}
+           nodes={nodes as AppNode[]}
+           simulationTime={simulationTime}
+           warmupTime={warmupTime}
+           isWarmedUp={isWarmedUp}
+           theme={theme}
         />
       </ReactFlowProvider>
 

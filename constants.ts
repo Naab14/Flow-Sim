@@ -5,12 +5,13 @@ export const INITIAL_NODES = [
   {
     id: '1',
     type: 'custom',
-    data: { 
-      label: 'Raw Material', 
-      type: NodeType.SOURCE, 
-      cycleTime: 5, 
-      defectRate: 0, 
-      batchSize: 100, 
+    data: {
+      label: 'Raw Material',
+      type: NodeType.SOURCE,
+      cycleTime: 5,
+      cycleTimeVariation: 0,
+      defectRate: 0,
+      batchSize: 100,
       capacity: 1,
       stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
       status: 'idle',
@@ -21,12 +22,13 @@ export const INITIAL_NODES = [
   {
     id: '2',
     type: 'custom',
-    data: { 
-      label: 'Machining', 
-      type: NodeType.PROCESS, 
-      cycleTime: 10, 
-      defectRate: 1, 
-      batchSize: 1, 
+    data: {
+      label: 'Machining',
+      type: NodeType.PROCESS,
+      cycleTime: 10,
+      cycleTimeVariation: 10, // ±10% variation - realistic for manual operation
+      defectRate: 1,
+      batchSize: 1,
       capacity: 1,
       stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
       status: 'idle',
@@ -37,12 +39,13 @@ export const INITIAL_NODES = [
   {
     id: '3',
     type: 'custom',
-    data: { 
-      label: 'Buffer', 
-      type: NodeType.INVENTORY, 
-      cycleTime: 0, 
-      defectRate: 0, 
-      batchSize: 10, 
+    data: {
+      label: 'Buffer',
+      type: NodeType.INVENTORY,
+      cycleTime: 0,
+      cycleTimeVariation: 0,
+      defectRate: 0,
+      batchSize: 10,
       capacity: 5, // Limited space
       stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
       status: 'idle',
@@ -53,12 +56,13 @@ export const INITIAL_NODES = [
   {
     id: '4',
     type: 'custom',
-    data: { 
-      label: 'Assembly', 
-      type: NodeType.PROCESS, 
+    data: {
+      label: 'Assembly',
+      type: NodeType.PROCESS,
       cycleTime: 15, // Slower than machining -> Bottleneck
-      defectRate: 0, 
-      batchSize: 1, 
+      cycleTimeVariation: 15, // ±15% variation - higher for manual assembly
+      defectRate: 0,
+      batchSize: 1,
       capacity: 1,
       stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
       status: 'idle',
@@ -69,12 +73,13 @@ export const INITIAL_NODES = [
   {
     id: '5',
     type: 'custom',
-    data: { 
-      label: 'Shipping', 
-      type: NodeType.SHIPPING, 
-      cycleTime: 0, 
-      defectRate: 0, 
-      batchSize: 1, 
+    data: {
+      label: 'Shipping',
+      type: NodeType.SHIPPING,
+      cycleTime: 0,
+      cycleTimeVariation: 0,
+      defectRate: 0,
+      batchSize: 1,
       capacity: 1,
       stats: { totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 },
       status: 'idle',

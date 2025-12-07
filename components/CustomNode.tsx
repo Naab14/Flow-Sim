@@ -3,8 +3,11 @@ import { Handle, Position, NodeProps } from 'reactflow';
 import { NodeData, NodeType } from '../types';
 import { NODE_TYPES_CONFIG } from '../constants';
 import { Factory, Box, ClipboardCheck, Play, ArrowRight, Database, Ban, Hourglass, BarChart2 } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const config = NODE_TYPES_CONFIG[data.type];
   
   const getIcon = () => {
@@ -19,18 +22,28 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
   };
 
   const getStatusStyles = () => {
-    if (selected) return 'border-white shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-[1.02] z-30';
-    
+    if (selected) {
+      return isLight
+        ? 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.4)] scale-[1.02] z-30'
+        : 'border-white shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-[1.02] z-30';
+    }
+
     switch (data.status) {
       case 'active':
         return 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]';
       case 'blocked':
-        return 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] bg-red-950/20';
+        return isLight
+          ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)] bg-red-50'
+          : 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] bg-red-950/20';
       case 'starved':
-        return 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] bg-amber-950/20 opacity-90';
+        return isLight
+          ? 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] bg-amber-50 opacity-90'
+          : 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] bg-amber-950/20 opacity-90';
       case 'idle':
       default:
-        return 'border-slate-700 hover:border-slate-500';
+        return isLight
+          ? 'border-slate-300 hover:border-slate-400'
+          : 'border-slate-700 hover:border-slate-500';
     }
   };
 
@@ -46,12 +59,15 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
   const isQuality = data.type === NodeType.QUALITY;
 
   return (
-    <div className={`relative min-w-[200px] bg-slate-900/90 backdrop-blur-md rounded-lg border-2 transition-all duration-300 overflow-visible group
+    <div className={`relative min-w-[200px] backdrop-blur-md rounded-lg border-2 transition-all duration-300 overflow-visible group
+      ${isLight ? 'bg-white/95' : 'bg-slate-900/90'}
       ${getStatusStyles()}
     `}>
       {/* Queue Badge */}
       {!isSource && data.stats && data.stats.queueLength > 0 && (
-          <div className="absolute -top-3 -left-3 z-40 bg-blue-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg">
+          <div className={`absolute -top-3 -left-3 z-40 bg-blue-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 shadow-lg ${
+            isLight ? 'border-white' : 'border-slate-900'
+          }`}>
              {data.stats.queueLength}
           </div>
       )}
@@ -61,7 +77,9 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
         <Handle
           type="target"
           position={Position.Left}
-          className="!bg-slate-300 !w-4 !h-4 !-left-2.5 !border-2 !border-slate-900 transition-all hover:!bg-white hover:scale-125 z-20 shadow-lg shadow-blue-500/50"
+          className={`!w-4 !h-4 !-left-2.5 !border-2 transition-all hover:!bg-blue-400 hover:scale-125 z-20 shadow-lg shadow-blue-500/50 ${
+            isLight ? '!bg-slate-400 !border-white' : '!bg-slate-300 !border-slate-900'
+          }`}
           id="target"
         />
       )}
@@ -69,40 +87,46 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
       <div className="p-3">
         {/* Header */}
         <div className="flex items-center gap-3 mb-3">
-          <div className={`p-2 rounded-md bg-slate-800 transition-colors ${config.iconColor} 
-             ${data.status === 'active' ? 'bg-slate-800' : 'bg-slate-800/50'}
-          `}>
+          <div className={`p-2 rounded-md transition-colors ${config.iconColor} ${
+            isLight
+              ? (data.status === 'active' ? 'bg-slate-100' : 'bg-slate-50')
+              : (data.status === 'active' ? 'bg-slate-800' : 'bg-slate-800/50')
+          }`}>
             {getIcon()}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold text-slate-100 truncate leading-tight">{data.label}</h3>
+            <h3 className={`text-sm font-bold truncate leading-tight ${isLight ? 'text-slate-800' : 'text-slate-100'}`}>{data.label}</h3>
             <div className="flex items-center gap-2">
-               <p className="text-[10px] text-slate-400 uppercase tracking-wider">{config.label}</p>
+               <p className={`text-[10px] uppercase tracking-wider ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{config.label}</p>
                {getStatusIcon()}
             </div>
           </div>
           {/* Status Dot */}
           <div className={`w-2 h-2 rounded-full transition-colors duration-500
-            ${data.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' : 
+            ${data.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' :
               data.status === 'blocked' ? 'bg-red-500' :
-              data.status === 'starved' ? 'bg-amber-500' : 'bg-slate-600'}
+              data.status === 'starved' ? 'bg-amber-500' : (isLight ? 'bg-slate-300' : 'bg-slate-600')}
           `}></div>
         </div>
 
         {/* Real-time KPI Grid */}
         <div className="grid grid-cols-2 gap-2 text-xs mb-2">
           {/* Inventory / Queue */}
-          <div className={`p-1.5 rounded border transition-colors ${data.stats?.queueLength > 5 ? 'bg-amber-900/20 border-amber-800/50' : 'bg-slate-800/50 border-slate-700/50'}`}>
-            <span className="text-slate-400 block text-[10px]">{isInventory ? 'Stock' : 'Queue'}</span>
-            <span className={`font-mono font-medium ${data.stats?.queueLength > 5 ? 'text-amber-400' : 'text-slate-200'}`}>
+          <div className={`p-1.5 rounded border transition-colors ${
+            data.stats?.queueLength > 5
+              ? (isLight ? 'bg-amber-50 border-amber-200' : 'bg-amber-900/20 border-amber-800/50')
+              : (isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/50 border-slate-700/50')
+          }`}>
+            <span className={`block text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{isInventory ? 'Stock' : 'Queue'}</span>
+            <span className={`font-mono font-medium ${data.stats?.queueLength > 5 ? 'text-amber-500' : (isLight ? 'text-slate-700' : 'text-slate-200')}`}>
                 {data.stats ? data.stats.queueLength : 0}
             </span>
           </div>
 
           {/* Utilization / Output */}
-          <div className="bg-slate-800/50 p-1.5 rounded border border-slate-700/50">
-            <span className="text-slate-400 block text-[10px]">{isSource || isSink ? 'Total' : 'Util %'}</span>
-            <span className="text-slate-200 font-mono font-medium">
+          <div className={`p-1.5 rounded border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/50 border-slate-700/50'}`}>
+            <span className={`block text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{isSource || isSink ? 'Total' : 'Util %'}</span>
+            <span className={`font-mono font-medium ${isLight ? 'text-slate-700' : 'text-slate-200'}`}>
                 {isSource || isSink
                    ? (data.stats?.totalProcessed || 0)
                    : `${(data.stats?.utilization || 0).toFixed(0)}%`}
@@ -113,15 +137,15 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
         {/* Quality Stats Row - Only for QUALITY/Inspection nodes */}
         {isQuality && (
           <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-            <div className="bg-red-900/20 p-1.5 rounded border border-red-800/30">
-              <span className="text-red-400 block text-[10px]">Defects</span>
-              <span className="text-red-300 font-mono font-medium">
+            <div className={`p-1.5 rounded border ${isLight ? 'bg-red-50 border-red-200' : 'bg-red-900/20 border-red-800/30'}`}>
+              <span className="text-red-500 block text-[10px]">Defects</span>
+              <span className={`font-mono font-medium ${isLight ? 'text-red-600' : 'text-red-300'}`}>
                 {data.stats?.totalDefects || 0}
               </span>
             </div>
-            <div className="bg-slate-800/50 p-1.5 rounded border border-slate-700/50">
-              <span className="text-slate-400 block text-[10px]">Scrapped</span>
-              <span className="text-slate-200 font-mono font-medium">
+            <div className={`p-1.5 rounded border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/50 border-slate-700/50'}`}>
+              <span className={`block text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Scrapped</span>
+              <span className={`font-mono font-medium ${isLight ? 'text-slate-700' : 'text-slate-200'}`}>
                 {data.stats?.totalScrapped || 0}
               </span>
             </div>
@@ -130,13 +154,13 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
 
         {/* Progress Bar */}
         {(data.type === NodeType.PROCESS || data.type === NodeType.QUALITY) && (
-          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden relative">
+          <div className={`h-1.5 w-full rounded-full overflow-hidden relative ${isLight ? 'bg-slate-200' : 'bg-slate-800'}`}>
              {data.status === 'blocked' && (
                 <div className="absolute inset-0 w-full h-full bg-[linear-gradient(45deg,transparent_25%,rgba(239,68,68,0.2)_25%,rgba(239,68,68,0.2)_50%,transparent_50%,transparent_75%,rgba(239,68,68,0.2)_75%,rgba(239,68,68,0.2)_100%)] bg-[length:10px_10px]"></div>
              )}
-            <div 
+            <div
               className={`h-full transition-all duration-200 ease-linear
-                 ${data.status === 'blocked' ? 'bg-red-500 w-full' : 
+                 ${data.status === 'blocked' ? 'bg-red-500 w-full' :
                    data.status === 'starved' ? 'bg-amber-500' : 'bg-blue-500'}
               `}
               style={{ width: `${data.status === 'blocked' ? 100 : data.status === 'starved' ? 0 : 100}%`, opacity: data.status === 'active' ? 1 : 0.5 }}
@@ -149,7 +173,9 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
         <Handle
           type="source"
           position={Position.Right}
-          className="!bg-slate-300 !w-4 !h-4 !-right-2.5 !border-2 !border-slate-900 transition-all hover:!bg-white hover:scale-125 z-20 shadow-lg shadow-blue-500/50"
+          className={`!w-4 !h-4 !-right-2.5 !border-2 transition-all hover:!bg-blue-400 hover:scale-125 z-20 shadow-lg shadow-blue-500/50 ${
+            isLight ? '!bg-slate-400 !border-white' : '!bg-slate-300 !border-slate-900'
+          }`}
           id="source"
         />
       )}
