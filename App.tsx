@@ -12,7 +12,8 @@ import ReactFlow, {
   MiniMap,
   BackgroundVariant,
   MarkerType,
-  useReactFlow
+  useReactFlow,
+  Position
 } from 'reactflow';
 import dagre from 'dagre';
 import Sidebar from './components/Sidebar';
@@ -45,8 +46,8 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
     const nodeWithPosition = dagreGraph.node(node.id);
     return {
       ...node,
-      targetPosition: isHorizontal ? 'left' : 'top',
-      sourcePosition: isHorizontal ? 'right' : 'bottom',
+      targetPosition: isHorizontal ? Position.Left : Position.Top,
+      sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
       position: {
         x: nodeWithPosition.x - 220 / 2,
         y: nodeWithPosition.y - 120 / 2,
