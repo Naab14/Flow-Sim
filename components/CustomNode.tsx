@@ -43,6 +43,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
   const isSource = data.type === NodeType.SOURCE;
   const isSink = data.type === NodeType.SHIPPING;
   const isInventory = data.type === NodeType.INVENTORY;
+  const isQuality = data.type === NodeType.QUALITY;
 
   return (
     <div className={`relative min-w-[200px] bg-slate-900/90 backdrop-blur-md rounded-lg border-2 transition-all duration-300 overflow-visible group
@@ -97,17 +98,35 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
                 {data.stats ? data.stats.queueLength : 0}
             </span>
           </div>
-          
+
           {/* Utilization / Output */}
           <div className="bg-slate-800/50 p-1.5 rounded border border-slate-700/50">
             <span className="text-slate-400 block text-[10px]">{isSource || isSink ? 'Total' : 'Util %'}</span>
             <span className="text-slate-200 font-mono font-medium">
-                {isSource || isSink 
-                   ? (data.stats?.totalProcessed || 0) 
+                {isSource || isSink
+                   ? (data.stats?.totalProcessed || 0)
                    : `${(data.stats?.utilization || 0).toFixed(0)}%`}
             </span>
           </div>
         </div>
+
+        {/* Quality Stats Row - Only for QUALITY/Inspection nodes */}
+        {isQuality && (
+          <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+            <div className="bg-red-900/20 p-1.5 rounded border border-red-800/30">
+              <span className="text-red-400 block text-[10px]">Defects</span>
+              <span className="text-red-300 font-mono font-medium">
+                {data.stats?.totalDefects || 0}
+              </span>
+            </div>
+            <div className="bg-slate-800/50 p-1.5 rounded border border-slate-700/50">
+              <span className="text-slate-400 block text-[10px]">Scrapped</span>
+              <span className="text-slate-200 font-mono font-medium">
+                {data.stats?.totalScrapped || 0}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Progress Bar */}
         {(data.type === NodeType.PROCESS || data.type === NodeType.QUALITY) && (
