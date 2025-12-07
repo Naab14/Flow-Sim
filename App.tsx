@@ -140,15 +140,16 @@ const App: React.FC = () => {
         id: `node_${Date.now()}`,
         type: 'custom',
         position,
-        data: { 
-          label: label, 
-          type: type, 
-          cycleTime: type === NodeType.PROCESS ? 10 : (type === NodeType.SOURCE ? 5 : 0), 
+        data: {
+          label: label,
+          type: type,
+          cycleTime: type === NodeType.PROCESS ? 10 : (type === NodeType.SOURCE ? 5 : 0),
+          cycleTimeVariation: 0, // % variation (0 = deterministic, 10 = ±10%)
           defectRate: 0,
           batchSize: 1,
           capacity: type === NodeType.INVENTORY ? 10 : 1,
-          stats: { 
-              totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0 
+          stats: {
+              totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0
           },
           status: 'idle',
           progress: 0
@@ -225,6 +226,135 @@ const App: React.FC = () => {
      document.body.appendChild(link);
      link.click();
      document.body.removeChild(link);
+  };
+
+  // Save current scenario (nodes, edges, settings) to JSON file
+  const handleSaveScenario = () => {
+    const scenario = {
+      version: '1.0',
+      name: `LeanFlow Scenario - ${new Date().toLocaleDateString()}`,
+      createdAt: new Date().toISOString(),
+      settings: {
+        warmupTime,
+        simulationSpeed
+      },
+      nodes: nodes.map(n => ({
+        id: n.id,
+        type: n.type,
+        position: n.position,
+        data: {
+          label: n.data.label,
+          type: n.data.type,
+          cycleTime: n.data.cycleTime,
+          cycleTimeVariation: n.data.cycleTimeVariation || 0,
+          defectRate: n.data.defectRate,
+          batchSize: n.data.batchSize,
+          capacity: n.data.capacity
+        }
+      })),
+      edges: edges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: e.type
+      }))
+    };
+
+    const jsonContent = JSON.stringify(scenario, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `leanflow_scenario_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Load scenario from JSON file
+  const handleLoadScenario = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const scenario = JSON.parse(e.target?.result as string);
+
+        // Validate basic structure
+        if (!scenario.nodes || !scenario.edges) {
+          alert('Invalid scenario file: missing nodes or edges');
+          return;
+        }
+
+        // Stop simulation and reset
+        setIsPlaying(false);
+        setSimulationTime(0);
+        setIsWarmedUp(false);
+
+        // Load settings if present
+        if (scenario.settings) {
+          if (scenario.settings.warmupTime !== undefined) {
+            setWarmupTime(scenario.settings.warmupTime);
+          }
+          if (scenario.settings.simulationSpeed !== undefined) {
+            setSimulationSpeed(scenario.settings.simulationSpeed);
+          }
+        }
+
+        // Load nodes with default stats
+        const loadedNodes = scenario.nodes.map((n: any) => ({
+          ...n,
+          data: {
+            ...n.data,
+            cycleTimeVariation: n.data.cycleTimeVariation || 0,
+            stats: {
+              totalProcessed: 0,
+              busyTime: 0,
+              blockedTime: 0,
+              starvedTime: 0,
+              utilization: 0,
+              queueLength: 0,
+              avgCycleTime: 0
+            },
+            status: 'idle',
+            progress: 0
+          }
+        }));
+
+        // Load edges with styling
+        const loadedEdges = scenario.edges.map((e: any) => ({
+          ...e,
+          animated: true,
+          type: e.type || 'smoothstep',
+          style: { stroke: '#475569', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' }
+        }));
+
+        setNodes(loadedNodes);
+        setEdges(loadedEdges);
+        setMovingEntities([]);
+        setGlobalStats({
+          throughput: 0,
+          throughputPerMinute: 0,
+          wip: 0,
+          averageLeadTime: 0,
+          completedCount: 0,
+          totalGenerated: 0,
+          oee: 0,
+          availability: 100,
+          performance: 0,
+          quality: 100,
+          bottleneckNodeId: null,
+          bottleneckUtilization: 0,
+          history: []
+        });
+
+        console.log(`Loaded scenario: ${scenario.name || 'Unknown'}`);
+      } catch (error) {
+        console.error('Failed to load scenario:', error);
+        alert('Failed to load scenario file. Please check the file format.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleRunAnalysis = async () => {
@@ -383,6 +513,8 @@ const App: React.FC = () => {
            warmupTime={warmupTime}
            onWarmupChange={setWarmupTime}
            isWarmedUp={isWarmedUp}
+           onSaveScenario={handleSaveScenario}
+           onLoadScenario={handleLoadScenario}
         />
         
         {/* Center Canvas */}

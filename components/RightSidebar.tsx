@@ -279,6 +279,29 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     </div>
 
                     <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">Cycle Time Variation (%)</label>
+                      <div className="relative">
+                        <input
+                            type="range"
+                            min="0"
+                            max="50"
+                            step="1"
+                            className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                            value={selectedNode.data.cycleTimeVariation || 0}
+                            onChange={(e) => handleChange('cycleTimeVariation', Number(e.target.value))}
+                        />
+                        <div className="flex justify-between mt-1 text-xs text-slate-400 font-mono">
+                            <span>0%</span>
+                            <span className="text-cyan-400 font-bold">±{selectedNode.data.cycleTimeVariation || 0}%</span>
+                            <span>50%</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Random variation: {(selectedNode.data.cycleTime * (1 - (selectedNode.data.cycleTimeVariation || 0)/100)).toFixed(1)}s - {(selectedNode.data.cycleTime * (1 + (selectedNode.data.cycleTimeVariation || 0)/100)).toFixed(1)}s
+                      </p>
+                    </div>
+
+                    <div>
                        <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">Capacity (Parallel Units)</label>
                        <input
                          type="number"

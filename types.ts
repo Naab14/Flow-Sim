@@ -35,11 +35,12 @@ export interface StationStats {
 export interface NodeData {
   label: string;
   type: NodeType;
-  cycleTime: number; // seconds
+  cycleTime: number; // seconds (mean/target)
+  cycleTimeVariation: number; // % variation (e.g., 10 means ±10%)
   defectRate: number; // %
   batchSize: number;
   capacity: number; // Max concurrent units (or storage size for inventory)
-  
+
   // Simulation State (Real-time)
   stats: StationStats;
   status: 'active' | 'idle' | 'blocked' | 'starved';

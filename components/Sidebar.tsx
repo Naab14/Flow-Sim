@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { NodeType } from '../types';
-import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer, Save, FolderOpen } from 'lucide-react';
 
 interface SidebarProps {
   simulationTime: number;
@@ -16,6 +16,8 @@ interface SidebarProps {
   warmupTime: number;
   onWarmupChange: (time: number) => void;
   isWarmedUp: boolean;
+  onSaveScenario: () => void;
+  onLoadScenario: (file: File) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -31,9 +33,21 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSpeedChange,
   warmupTime,
   onWarmupChange,
-  isWarmedUp
+  isWarmedUp,
+  onSaveScenario,
+  onLoadScenario
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onLoadScenario(file);
+      // Reset input so same file can be loaded again
+      e.target.value = '';
+    }
+  };
 
   const onDragStart = (event: React.DragEvent, nodeType: NodeType, label: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
@@ -213,7 +227,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {!isCollapsed && <span className="text-sm font-medium">Auto Layout</span>}
              </button>
              
-             <button 
+             <button
                 onClick={onExport}
                 className={`bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 hover:border-emerald-500/50 rounded border border-slate-700 transition-all flex items-center justify-center gap-2
                    ${isCollapsed ? 'p-3 w-full aspect-square' : 'py-2 px-3'}
@@ -223,8 +237,39 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <Download size={18} />
                 {!isCollapsed && <span className="text-sm font-medium">Export CSV</span>}
              </button>
+
+             {/* Scenario Save/Load */}
+             <div className={`flex ${isCollapsed ? 'flex-col' : 'flex-row'} gap-2 mt-2`}>
+               <button
+                  onClick={onSaveScenario}
+                  className={`bg-slate-800 text-slate-400 hover:text-cyan-400 hover:bg-slate-700 hover:border-cyan-500/50 rounded border border-slate-700 transition-all flex items-center justify-center gap-2
+                     ${isCollapsed ? 'p-3 w-full aspect-square' : 'flex-1 py-2 px-3'}
+                  `}
+                  title="Save Scenario"
+               >
+                  <Save size={16} />
+                  {!isCollapsed && <span className="text-sm font-medium">Save</span>}
+               </button>
+               <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`bg-slate-800 text-slate-400 hover:text-amber-400 hover:bg-slate-700 hover:border-amber-500/50 rounded border border-slate-700 transition-all flex items-center justify-center gap-2
+                     ${isCollapsed ? 'p-3 w-full aspect-square' : 'flex-1 py-2 px-3'}
+                  `}
+                  title="Load Scenario"
+               >
+                  <FolderOpen size={16} />
+                  {!isCollapsed && <span className="text-sm font-medium">Load</span>}
+               </button>
+               <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileChange}
+                  className="hidden"
+               />
+             </div>
            </div>
-           
+
            {!isCollapsed && (
              <div className="mt-3 text-center text-xs text-slate-500 font-mono bg-slate-900 rounded py-1">
                 {formatTime(simulationTime)}

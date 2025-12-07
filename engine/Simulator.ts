@@ -254,10 +254,20 @@ export class Simulator {
         state.processing.push(entity);
         entity.state = 'processing';
 
-        // Calculate Processing Time
-        let procTime = state.config.cycleTime;
+        // Calculate Processing Time with variability
+        // Manufacturing analogy: Real machines have variation due to operator skill,
+        // material differences, and equipment condition
+        let procTime = state.config.cycleTime || 0;
         if (state.config.type === NodeType.INVENTORY) {
           procTime = 0.1; // Fast pass through buffer (just a holding area)
+        } else {
+          // Apply variability if configured (uniform distribution within ±variation%)
+          const variation = state.config.cycleTimeVariation || 0;
+          if (variation > 0) {
+            // Random factor between (1 - variation%) and (1 + variation%)
+            const variationFactor = 1 + ((Math.random() * 2 - 1) * variation / 100);
+            procTime = procTime * variationFactor;
+          }
         }
 
         this.scheduleEvent(procTime, 'PROCESS_END', nodeId, entity.id);
