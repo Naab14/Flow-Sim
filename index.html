@@ -3,10 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LeanFlow Sim</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React Flow CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/style.min.css" />
+    <title>LeanFlow Sim - Manufacturing DES Simulator</title>
+    <meta name="description" content="Discrete Event Simulation tool for pharmaceutical manufacturing optimization" />
     <style>
       /* Custom Scrollbar for a cleaner look */
       ::-webkit-scrollbar {
@@ -24,26 +22,20 @@
         background: #475569;
       }
       body {
+        margin: 0;
+        padding: 0;
         background-color: #020617; /* slate-950 */
         color: #f8fafc;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      #root {
+        width: 100vw;
+        height: 100vh;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
-    "reactflow": "https://aistudiocdn.com/reactflow@^11.11.4",
-    "dagre": "https://aistudiocdn.com/dagre@0.8.5"
-  }
-}
-</script>
-</head>
+  </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
