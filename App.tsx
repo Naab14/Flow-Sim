@@ -24,6 +24,7 @@ import { INITIAL_NODES, INITIAL_EDGES, NODE_TYPES_CONFIG } from './constants';
 import { AppNode, NodeType, SimulationResult, Entity, GlobalStats, HistoryPoint } from './types';
 import { analyzeFlow } from './services/geminiService';
 import { Simulator } from './engine/Simulator';
+import { useTheme } from './contexts/ThemeContext';
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => {
   const dagreGraph = new dagre.graphlib.Graph();
@@ -61,6 +62,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 const simulator = new Simulator();
 
 const App: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
   const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
@@ -496,7 +498,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#020617] overflow-hidden font-sans">
+    <div className={`flex h-screen w-screen overflow-hidden font-sans transition-colors duration-300 ${
+      theme === 'light' ? 'bg-white' : 'bg-[#020617]'
+    }`}>
       <ReactFlowProvider>
         {/* Left Sidebar */}
         <Sidebar
@@ -515,6 +519,8 @@ const App: React.FC = () => {
            isWarmedUp={isWarmedUp}
            onSaveScenario={handleSaveScenario}
            onLoadScenario={handleLoadScenario}
+           theme={theme}
+           onToggleTheme={toggleTheme}
         />
         
         {/* Center Canvas */}
@@ -548,10 +554,21 @@ const App: React.FC = () => {
             minZoom={0.5}
             maxZoom={2}
           >
-            <Controls className="bg-slate-800 border border-slate-700 fill-slate-300" />
-            <Background color="#1e293b" gap={24} size={1} variant={BackgroundVariant.Dots} />
-            <MiniMap 
-                className="!bg-slate-900 !border-slate-800 rounded-lg overflow-hidden"
+            <Controls className={`${theme === 'light'
+              ? 'bg-white border border-slate-200 fill-slate-600'
+              : 'bg-slate-800 border border-slate-700 fill-slate-300'
+            }`} />
+            <Background
+              color={theme === 'light' ? '#e2e8f0' : '#1e293b'}
+              gap={24}
+              size={1}
+              variant={BackgroundVariant.Dots}
+            />
+            <MiniMap
+                className={`rounded-lg overflow-hidden ${theme === 'light'
+                  ? '!bg-slate-50 !border-slate-200'
+                  : '!bg-slate-900 !border-slate-800'
+                }`}
                 nodeColor={(n) => {
                     const t = n.data?.type;
                     if (t === NodeType.SOURCE) return '#3b82f6';
@@ -574,6 +591,7 @@ const App: React.FC = () => {
            simulationTime={simulationTime}
            warmupTime={warmupTime}
            isWarmedUp={isWarmedUp}
+           theme={theme}
         />
       </ReactFlowProvider>
 
