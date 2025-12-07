@@ -21,7 +21,7 @@ import RightSidebar from './components/RightSidebar';
 import CustomNode from './components/CustomNode';
 import AnalysisModal from './components/AnalysisModal';
 import { INITIAL_NODES, INITIAL_EDGES, NODE_TYPES_CONFIG } from './constants';
-import { AppNode, NodeType, SimulationResult, Entity } from './types';
+import { AppNode, NodeType, SimulationResult, Entity, GlobalStats, HistoryPoint } from './types';
 import { analyzeFlow } from './services/geminiService';
 import { Simulator } from './engine/Simulator';
 
@@ -70,7 +70,22 @@ const App: React.FC = () => {
   // Simulation State
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationTime, setSimulationTime] = useState(0);
-  const [globalStats, setGlobalStats] = useState({ throughput: 0, wip: 0, history: [] as any[] });
+  const [simulationSpeed, setSimulationSpeed] = useState(5); // 1x, 2x, 5x, 10x
+  const [globalStats, setGlobalStats] = useState<GlobalStats & { history: HistoryPoint[] }>({
+    throughput: 0,
+    throughputPerMinute: 0,
+    wip: 0,
+    averageLeadTime: 0,
+    completedCount: 0,
+    totalGenerated: 0,
+    oee: 0,
+    availability: 100,
+    performance: 0,
+    quality: 100,
+    bottleneckNodeId: null,
+    bottleneckUtilization: 0,
+    history: []
+  });
   
   // Visual entities
   const [movingEntities, setMovingEntities] = useState<Entity[]>([]);
@@ -202,7 +217,21 @@ const App: React.FC = () => {
       setSimulationTime(0);
       simulator.initialize(nodes as AppNode[], edges);
       setMovingEntities([]);
-      setGlobalStats({ throughput: 0, wip: 0, history: [] });
+      setGlobalStats({
+        throughput: 0,
+        throughputPerMinute: 0,
+        wip: 0,
+        averageLeadTime: 0,
+        completedCount: 0,
+        totalGenerated: 0,
+        oee: 0,
+        availability: 100,
+        performance: 0,
+        quality: 100,
+        bottleneckNodeId: null,
+        bottleneckUtilization: 0,
+        history: []
+      });
       setNodes(nds => nds.map(n => ({
           ...n,
           data: { ...n.data, status: 'idle', progress: 0, stats: { ...n.data.stats, queueLength: 0, utilization: 0, totalProcessed: 0 } }
@@ -225,16 +254,16 @@ const App: React.FC = () => {
         const dt = (time - lastTime) / 1000;
         lastTime = time;
 
-        // Run simulation step
-        const simStep = 0.05; // Fixed small step for stability
-        const speedFactor = 5; // 1 real sec = 5 sim sec
-        
-        // Advance physics
+        // Run simulation step with configurable speed
+        // Manufacturing analogy: Fast-forward the production day to see results quicker
+        const speedFactor = simulationSpeed; // User-controlled: 1x, 2x, 5x, 10x
+
+        // Advance simulation physics
         const updateResult = simulator.update(dt * speedFactor);
-        
+
         setSimulationTime(t => t + dt * speedFactor);
-        
-        // Sync React State (Throttled if needed, but here every frame for smoothness)
+
+        // Sync React State (every frame for smooth visualization)
         // 1. Update Nodes Visuals
         setNodes(currentNodes => currentNodes.map(n => {
             const simState = updateResult.nodes.get(n.id);
@@ -251,16 +280,12 @@ const App: React.FC = () => {
             return n;
         }));
 
-        // 2. Update Stats
-        setGlobalStats(prev => ({
+        // 2. Update Stats (use simulator's history for charts)
+        setGlobalStats({
             ...updateResult.stats,
-            history: [...prev.history, { 
-                time: simulator['currentTime'], // Accessing public via bracket if private
-                throughput: updateResult.stats.throughput,
-                wip: updateResult.stats.wip 
-            }].slice(-50) // Keep last 50 points for chart
-        }));
-        
+            history: simulator.history
+        });
+
         // 3. Update Moving Entities
         setMovingEntities(updateResult.entities);
 
@@ -269,7 +294,7 @@ const App: React.FC = () => {
 
     frameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frameId);
-  }, [isPlaying, edges]); // Re-init if topology changes? Maybe strictly on Play.
+  }, [isPlaying, edges, simulationSpeed]); // Re-run if speed changes
 
   // Render Moving Entities Overlay
   const renderEntities = () => {
@@ -308,15 +333,17 @@ const App: React.FC = () => {
     <div className="flex h-screen w-screen bg-[#020617] overflow-hidden font-sans">
       <ReactFlowProvider>
         {/* Left Sidebar */}
-        <Sidebar 
-           simulationTime={simulationTime} 
-           isPlaying={isPlaying} 
+        <Sidebar
+           simulationTime={simulationTime}
+           isPlaying={isPlaying}
            onTogglePlay={() => setIsPlaying(!isPlaying)}
            onReset={handleReset}
            onLayout={onLayout}
            throughput={globalStats.throughput}
            wipItems={globalStats.wip}
            onExport={handleExport}
+           simulationSpeed={simulationSpeed}
+           onSpeedChange={setSimulationSpeed}
         />
         
         {/* Center Canvas */}
@@ -367,11 +394,12 @@ const App: React.FC = () => {
         </div>
 
         {/* Right Sidebar */}
-        <RightSidebar 
-           selectedNode={selectedNode} 
+        <RightSidebar
+           selectedNode={selectedNode}
            onChange={updateNodeData}
            onAnalyze={handleRunAnalysis}
            simulationData={globalStats}
+           nodes={nodes as AppNode[]}
         />
       </ReactFlowProvider>
 

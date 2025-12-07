@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
-import { AppNode, NodeType } from '../types';
-import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders, Activity, Clock, Layers } from 'lucide-react';
+import { AppNode, NodeType, GlobalStats, HistoryPoint } from '../types';
+import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders, Activity, Clock, Layers, Target, AlertTriangle, TrendingUp, Gauge } from 'lucide-react';
 import KPIChart from './KPIChart';
 
 interface RightSidebarProps {
   selectedNode: AppNode | null;
   onChange: (id: string, data: any) => void;
   onAnalyze: () => void;
-  simulationData: { throughput: number; wip: number; history: any[] };
+  simulationData: GlobalStats & { history: HistoryPoint[] };
+  nodes: AppNode[];
 }
 
-const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onAnalyze, simulationData }) => {
+const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onAnalyze, simulationData, nodes }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'properties' | 'analysis'>('dashboard');
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Find bottleneck node name
+  const bottleneckNode = nodes.find(n => n.id === simulationData.bottleneckNodeId);
 
   // Switch to properties tab automatically when a node is selected
   React.useEffect(() => {
@@ -84,7 +88,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onA
         
         {/* DASHBOARD TAB */}
         {activeTab === 'dashboard' && (
-            <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="space-y-4 animate-in fade-in duration-300">
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                         <Activity className="text-emerald-500" /> Live Metrics
@@ -92,27 +96,98 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ selectedNode, onChange, onA
                     <span className="text-xs text-slate-500 font-mono animate-pulse">● LIVE</span>
                 </div>
 
+                {/* Bottleneck Alert */}
+                {bottleneckNode && simulationData.bottleneckUtilization > 80 && (
+                  <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-3 flex items-center gap-3">
+                    <AlertTriangle className="text-red-400 shrink-0" size={20} />
+                    <div>
+                      <p className="text-xs font-bold text-red-300">Bottleneck Detected</p>
+                      <p className="text-xs text-red-400/80">{bottleneckNode.data.label} at {simulationData.bottleneckUtilization}% utilization</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* OEE Card */}
+                <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 rounded-lg p-4 border border-slate-700">
+                    <div className="flex justify-between items-start mb-3">
+                        <div>
+                            <p className="text-xs text-slate-400 uppercase font-semibold">Overall Equipment Effectiveness</p>
+                            <p className="text-3xl font-mono text-white">{simulationData.oee.toFixed(1)}<span className="text-lg text-slate-500">%</span></p>
+                        </div>
+                        <Gauge size={24} className="text-blue-400"/>
+                    </div>
+                    {/* OEE Breakdown */}
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="bg-slate-800/50 p-2 rounded">
+                        <span className="text-slate-500 block">Availability</span>
+                        <span className="font-mono text-emerald-400">{simulationData.availability.toFixed(1)}%</span>
+                      </div>
+                      <div className="bg-slate-800/50 p-2 rounded">
+                        <span className="text-slate-500 block">Performance</span>
+                        <span className="font-mono text-blue-400">{simulationData.performance.toFixed(1)}%</span>
+                      </div>
+                      <div className="bg-slate-800/50 p-2 rounded">
+                        <span className="text-slate-500 block">Quality</span>
+                        <span className="font-mono text-purple-400">{simulationData.quality.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                </div>
+
                 {/* Throughput Card */}
                 <div className="bg-slate-800/40 rounded-lg p-4 border border-slate-700">
                     <div className="flex justify-between items-end mb-2">
                         <div>
                             <p className="text-xs text-slate-400 uppercase font-semibold">Throughput</p>
-                            <p className="text-2xl font-mono text-white">{simulationData.throughput.toFixed(0)} <span className="text-sm text-slate-500">u/min</span></p>
+                            <p className="text-2xl font-mono text-white">{simulationData.throughput.toFixed(0)} <span className="text-sm text-slate-500">u/hr</span></p>
+                            <p className="text-xs text-slate-500">{simulationData.throughputPerMinute} units in last minute</p>
                         </div>
-                        <Zap size={20} className="text-emerald-500 mb-2"/>
+                        <TrendingUp size={20} className="text-emerald-500 mb-2"/>
                     </div>
                     <KPIChart data={simulationData.history} dataKey="throughput" color="#10b981" label="Throughput" />
                 </div>
 
-                {/* WIP Card */}
-                <div className="bg-slate-800/40 rounded-lg p-4 border border-slate-700">
-                    <div className="flex justify-between items-end mb-2">
-                        <div>
-                            <p className="text-xs text-slate-400 uppercase font-semibold">Work In Process (WIP)</p>
-                            <p className="text-2xl font-mono text-white">{simulationData.wip} <span className="text-sm text-slate-500">units</span></p>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                    {/* WIP */}
+                    <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-700">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Layers size={14} className="text-amber-500"/>
+                            <p className="text-xs text-slate-400 uppercase font-semibold">WIP</p>
                         </div>
-                        <Layers size={20} className="text-amber-500 mb-2"/>
+                        <p className="text-xl font-mono text-white">{simulationData.wip}</p>
                     </div>
+
+                    {/* Lead Time */}
+                    <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-700">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Clock size={14} className="text-cyan-500"/>
+                            <p className="text-xs text-slate-400 uppercase font-semibold">Avg Lead Time</p>
+                        </div>
+                        <p className="text-xl font-mono text-white">{simulationData.averageLeadTime.toFixed(1)}<span className="text-sm text-slate-500">s</span></p>
+                    </div>
+
+                    {/* Completed */}
+                    <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-700">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Target size={14} className="text-green-500"/>
+                            <p className="text-xs text-slate-400 uppercase font-semibold">Completed</p>
+                        </div>
+                        <p className="text-xl font-mono text-white">{simulationData.completedCount}</p>
+                    </div>
+
+                    {/* Generated */}
+                    <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-700">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Zap size={14} className="text-blue-500"/>
+                            <p className="text-xs text-slate-400 uppercase font-semibold">Generated</p>
+                        </div>
+                        <p className="text-xl font-mono text-white">{simulationData.totalGenerated}</p>
+                    </div>
+                </div>
+
+                {/* WIP Chart */}
+                <div className="bg-slate-800/40 rounded-lg p-4 border border-slate-700">
+                    <p className="text-xs text-slate-400 uppercase font-semibold mb-2">WIP Over Time</p>
                     <KPIChart data={simulationData.history} dataKey="wip" color="#f59e0b" label="WIP" />
                 </div>
             </div>

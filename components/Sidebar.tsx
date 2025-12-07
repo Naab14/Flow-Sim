@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NodeType } from '../types';
-import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward } from 'lucide-react';
 
 interface SidebarProps {
   simulationTime: number;
@@ -11,17 +11,21 @@ interface SidebarProps {
   throughput: number;
   wipItems: number;
   onExport: () => void;
+  simulationSpeed: number;
+  onSpeedChange: (speed: number) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  simulationTime, 
-  isPlaying, 
-  onTogglePlay, 
+const Sidebar: React.FC<SidebarProps> = ({
+  simulationTime,
+  isPlaying,
+  onTogglePlay,
   onReset,
   onLayout,
   throughput,
   wipItems,
-  onExport
+  onExport,
+  simulationSpeed,
+  onSpeedChange
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -103,11 +107,11 @@ const Sidebar: React.FC<SidebarProps> = ({
            {!isCollapsed && <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 whitespace-nowrap">Controls</h2>}
            <div className="flex flex-col gap-2">
              <div className={`flex ${isCollapsed ? 'flex-col' : 'flex-row'} gap-2`}>
-                <button 
+                <button
                   onClick={onTogglePlay}
                   className={`rounded flex items-center justify-center gap-2 font-semibold transition-all
-                    ${isPlaying 
-                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]' 
+                    ${isPlaying
+                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-[0_0_15px_rgba(5,150,105,0.4)]'
                     }
                     ${isCollapsed ? 'p-3 w-full aspect-square' : 'flex-1 py-3'}
@@ -117,7 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                    {isPlaying ? <Pause size={18} className="fill-current" /> : <Play size={18} className="fill-current" />}
                    {!isCollapsed && (isPlaying ? 'Pause' : 'Start')}
                 </button>
-                <button 
+                <button
                   onClick={onReset}
                   className={`bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 rounded border border-slate-700 transition-colors flex items-center justify-center
                      ${isCollapsed ? 'p-3 w-full aspect-square' : 'p-3'}
@@ -127,6 +131,33 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <RotateCcw size={18} />
                 </button>
              </div>
+
+             {/* Simulation Speed Control */}
+             {!isCollapsed && (
+               <div className="mt-2">
+                 <div className="flex items-center gap-2 mb-1.5">
+                   <FastForward size={14} className="text-slate-500" />
+                   <span className="text-xs text-slate-500 font-semibold uppercase">Speed</span>
+                 </div>
+                 <div className="flex gap-1">
+                   {[1, 2, 5, 10].map(speed => (
+                     <button
+                       key={speed}
+                       onClick={() => onSpeedChange(speed)}
+                       className={`flex-1 py-1.5 text-xs font-bold rounded transition-all
+                         ${simulationSpeed === speed
+                           ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(59,130,246,0.4)]'
+                           : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700'
+                         }
+                       `}
+                       title={`${speed}x simulation speed`}
+                     >
+                       {speed}x
+                     </button>
+                   ))}
+                 </div>
+               </div>
+             )}
              
              <button 
                 onClick={onLayout}

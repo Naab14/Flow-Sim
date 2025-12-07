@@ -59,9 +59,24 @@ export interface SimulationResult {
 }
 
 export interface GlobalStats {
-  throughput: number; // Units per minute (rolling avg)
+  throughput: number; // Units per hour (rate-based)
+  throughputPerMinute: number; // Units per minute (rolling 60s window)
   wip: number;
-  averageLeadTime: number; // Seconds
+  averageLeadTime: number; // Seconds from creation to completion
   completedCount: number;
-  oee: number; // Overall Equipment Effectiveness (Global proxy)
+  totalGenerated: number;
+  oee: number; // Overall Equipment Effectiveness (0-100%)
+  availability: number; // OEE component: uptime %
+  performance: number; // OEE component: speed %
+  quality: number; // OEE component: good units %
+  bottleneckNodeId: string | null; // ID of current bottleneck
+  bottleneckUtilization: number; // Utilization % of bottleneck
+}
+
+// History point for charts
+export interface HistoryPoint {
+  time: number;
+  throughput: number;
+  wip: number;
+  oee: number;
 }
