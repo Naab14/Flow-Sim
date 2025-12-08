@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AppNode, NodeType, GlobalStats, HistoryPoint } from '../types';
-import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders, Activity, Clock, Layers, Target, AlertTriangle, TrendingUp, Gauge, Timer } from 'lucide-react';
+import { AppNode, NodeType, GlobalStats, HistoryPoint, ShiftPattern, BreakPeriod } from '../types';
+import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders, Activity, Clock, Layers, Target, AlertTriangle, TrendingUp, Gauge, Timer, Coffee, Plus, Trash2 } from 'lucide-react';
 import KPIChart from './KPIChart';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -44,7 +44,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     else if (activeTab === 'properties') setActiveTab('dashboard');
   }, [selectedNode]);
 
-  const handleChange = (field: string, value: string | number) => {
+  const handleChange = (field: string, value: string | number | ShiftPattern) => {
     if (!selectedNode) return;
     onChange(selectedNode.id, {
       ...selectedNode.data,
@@ -374,6 +374,148 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                             <span>100%</span>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Shift Pattern Section */}
+                    <div className={`p-3 rounded-lg ${isLight ? 'bg-purple-50 border border-purple-200' : 'bg-purple-900/20 border border-purple-800/30'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Coffee size={14} className="text-purple-500" />
+                          <label className={`text-xs font-semibold uppercase ${isLight ? 'text-purple-700' : 'text-purple-300'}`}>Shift Pattern</label>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const currentPattern = selectedNode.data.shiftPattern || { enabled: false, shiftDurationHours: 8, breaks: [] };
+                            handleChange('shiftPattern', { ...currentPattern, enabled: !currentPattern.enabled });
+                          }}
+                          className={`relative w-10 h-5 rounded-full transition-colors ${
+                            selectedNode.data.shiftPattern?.enabled
+                              ? 'bg-purple-500'
+                              : isLight ? 'bg-slate-300' : 'bg-slate-700'
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                              selectedNode.data.shiftPattern?.enabled ? 'translate-x-5' : 'translate-x-0.5'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {selectedNode.data.shiftPattern?.enabled && (
+                        <div className="space-y-3">
+                          <div>
+                            <label className={`block text-[10px] mb-1 ${isLight ? 'text-purple-600' : 'text-purple-400'}`}>Shift Duration (hours)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="24"
+                              className={`w-full rounded p-2 text-sm ${
+                                isLight
+                                  ? 'bg-white border border-purple-200 text-slate-800'
+                                  : 'bg-slate-900 border border-purple-700/50 text-slate-200'
+                              }`}
+                              value={selectedNode.data.shiftPattern?.shiftDurationHours || 8}
+                              onChange={(e) => {
+                                const currentPattern = selectedNode.data.shiftPattern || { enabled: true, shiftDurationHours: 8, breaks: [] };
+                                handleChange('shiftPattern', { ...currentPattern, shiftDurationHours: Number(e.target.value) });
+                              }}
+                            />
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className={`text-[10px] ${isLight ? 'text-purple-600' : 'text-purple-400'}`}>Scheduled Breaks</label>
+                              <button
+                                onClick={() => {
+                                  const currentPattern = selectedNode.data.shiftPattern || { enabled: true, shiftDurationHours: 8, breaks: [] };
+                                  const newBreak: BreakPeriod = { startMinute: 120, durationMinutes: 30, name: 'Break' };
+                                  handleChange('shiftPattern', { ...currentPattern, breaks: [...currentPattern.breaks, newBreak] });
+                                }}
+                                className={`p-1 rounded transition-colors ${
+                                  isLight ? 'hover:bg-purple-100 text-purple-600' : 'hover:bg-purple-800/30 text-purple-400'
+                                }`}
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+
+                            {(selectedNode.data.shiftPattern?.breaks || []).length === 0 && (
+                              <p className={`text-[10px] text-center py-2 ${isLight ? 'text-purple-400' : 'text-purple-500'}`}>
+                                No breaks configured
+                              </p>
+                            )}
+
+                            {(selectedNode.data.shiftPattern?.breaks || []).map((breakItem: BreakPeriod, index: number) => (
+                              <div key={index} className={`flex gap-2 items-center mb-2 p-2 rounded ${isLight ? 'bg-white' : 'bg-slate-800/50'}`}>
+                                <input
+                                  type="text"
+                                  placeholder="Name"
+                                  className={`w-20 text-[10px] p-1 rounded ${
+                                    isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-900 border border-slate-700'
+                                  }`}
+                                  value={breakItem.name}
+                                  onChange={(e) => {
+                                    const currentPattern = selectedNode.data.shiftPattern!;
+                                    const newBreaks = [...currentPattern.breaks];
+                                    newBreaks[index] = { ...newBreaks[index], name: e.target.value };
+                                    handleChange('shiftPattern', { ...currentPattern, breaks: newBreaks });
+                                  }}
+                                />
+                                <div className="flex-1 flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className={`w-12 text-[10px] p-1 rounded text-center ${
+                                      isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-900 border border-slate-700'
+                                    }`}
+                                    value={breakItem.startMinute}
+                                    onChange={(e) => {
+                                      const currentPattern = selectedNode.data.shiftPattern!;
+                                      const newBreaks = [...currentPattern.breaks];
+                                      newBreaks[index] = { ...newBreaks[index], startMinute: Number(e.target.value) };
+                                      handleChange('shiftPattern', { ...currentPattern, breaks: newBreaks });
+                                    }}
+                                  />
+                                  <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>min</span>
+                                  <span className={`text-[10px] ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>for</span>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    className={`w-10 text-[10px] p-1 rounded text-center ${
+                                      isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-900 border border-slate-700'
+                                    }`}
+                                    value={breakItem.durationMinutes}
+                                    onChange={(e) => {
+                                      const currentPattern = selectedNode.data.shiftPattern!;
+                                      const newBreaks = [...currentPattern.breaks];
+                                      newBreaks[index] = { ...newBreaks[index], durationMinutes: Number(e.target.value) };
+                                      handleChange('shiftPattern', { ...currentPattern, breaks: newBreaks });
+                                    }}
+                                  />
+                                  <span className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>min</span>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    const currentPattern = selectedNode.data.shiftPattern!;
+                                    const newBreaks = currentPattern.breaks.filter((_: BreakPeriod, i: number) => i !== index);
+                                    handleChange('shiftPattern', { ...currentPattern, breaks: newBreaks });
+                                  }}
+                                  className={`p-1 rounded transition-colors ${
+                                    isLight ? 'hover:bg-red-100 text-red-400' : 'hover:bg-red-900/30 text-red-400'
+                                  }`}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <p className={`text-[10px] ${isLight ? 'text-purple-500' : 'text-purple-500/70'}`}>
+                            Machine pauses during scheduled breaks. Shift repeats cyclically.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </>
                 )}

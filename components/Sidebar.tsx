@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { NodeType } from '../types';
-import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer, Save, FolderOpen, Settings, Sun, Moon } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer, Save, FolderOpen, Settings, Sun, Moon, GitCompare } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -21,6 +21,7 @@ interface SidebarProps {
   onSaveScenario: () => void;
   onLoadScenario: (file: File) => void;
   onOpenSettings: () => void;
+  onOpenComparison: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -39,7 +40,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   isWarmedUp,
   onSaveScenario,
   onLoadScenario,
-  onOpenSettings
+  onOpenSettings,
+  onOpenComparison
 }) => {
   const { isDark, toggleMode } = useTheme();
   const { t } = useLanguage();
@@ -353,6 +355,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                   className="hidden"
                />
              </div>
+
+             {/* Compare Scenarios */}
+             <button
+                onClick={onOpenComparison}
+                className={`rounded transition-all flex items-center justify-center gap-2
+                   ${isCollapsed ? 'p-3 w-full aspect-square' : 'py-2 px-3'}
+                   ${isLight
+                     ? 'bg-slate-100 text-slate-500 hover:text-purple-600 hover:bg-slate-200 hover:border-purple-300 border border-slate-200'
+                     : 'bg-slate-800 text-slate-400 hover:text-purple-400 hover:bg-slate-700 hover:border-purple-500/50 border border-slate-700'
+                   }
+                `}
+                title={t('sidebar.compare')}
+             >
+                <GitCompare size={16} />
+                {!isCollapsed && <span className="text-sm font-medium">{t('sidebar.compare')}</span>}
+             </button>
            </div>
 
            {!isCollapsed && (

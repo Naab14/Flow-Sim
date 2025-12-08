@@ -46,6 +46,7 @@ type TranslationKey =
   | 'sidebar.exportCsv'
   | 'sidebar.save'
   | 'sidebar.load'
+  | 'sidebar.compare'
   // Right Sidebar - Dashboard
   | 'dashboard.title'
   | 'dashboard.live'
@@ -139,6 +140,7 @@ const translations: Record<Language, Translations> = {
     'sidebar.exportCsv': 'Export CSV',
     'sidebar.save': 'Save',
     'sidebar.load': 'Load',
+    'sidebar.compare': 'Compare',
     // Right Sidebar - Dashboard
     'dashboard.title': 'Live Metrics',
     'dashboard.live': 'LIVE',
@@ -229,6 +231,7 @@ const translations: Record<Language, Translations> = {
     'sidebar.exportCsv': 'Exportera CSV',
     'sidebar.save': 'Spara',
     'sidebar.load': 'Ladda',
+    'sidebar.compare': 'Jämför',
     // Right Sidebar - Dashboard
     'dashboard.title': 'Livemätningar',
     'dashboard.live': 'LIVE',

@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { NodeData, NodeType } from '../types';
 import { NODE_TYPES_CONFIG } from '../constants';
-import { Factory, Box, ClipboardCheck, Play, ArrowRight, Database, Ban, Hourglass, BarChart2 } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, Play, ArrowRight, Database, Ban, Hourglass, BarChart2, Coffee } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
@@ -39,6 +39,10 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
         return isLight
           ? 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)] bg-amber-50 opacity-90'
           : 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] bg-amber-950/20 opacity-90';
+      case 'break':
+        return isLight
+          ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)] bg-purple-50 opacity-80'
+          : 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)] bg-purple-950/20 opacity-80';
       case 'idle':
       default:
         return isLight
@@ -50,6 +54,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
   const getStatusIcon = () => {
     if (data.status === 'blocked') return <Ban size={14} className="text-red-400 animate-pulse" />;
     if (data.status === 'starved') return <Hourglass size={14} className="text-amber-400 animate-pulse" />;
+    if (data.status === 'break') return <Coffee size={14} className="text-purple-400 animate-pulse" />;
     return null;
   };
 
@@ -105,7 +110,8 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
           <div className={`w-2 h-2 rounded-full transition-colors duration-500
             ${data.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' :
               data.status === 'blocked' ? 'bg-red-500' :
-              data.status === 'starved' ? 'bg-amber-500' : (isLight ? 'bg-slate-300' : 'bg-slate-600')}
+              data.status === 'starved' ? 'bg-amber-500' :
+              data.status === 'break' ? 'bg-purple-500' : (isLight ? 'bg-slate-300' : 'bg-slate-600')}
           `}></div>
         </div>
 
