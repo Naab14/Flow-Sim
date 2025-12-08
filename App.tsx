@@ -20,6 +20,7 @@ import Sidebar from './components/Sidebar';
 import RightSidebar from './components/RightSidebar';
 import CustomNode from './components/CustomNode';
 import AnalysisModal from './components/AnalysisModal';
+import SettingsPanel from './components/SettingsPanel';
 import { INITIAL_NODES, INITIAL_EDGES, NODE_TYPES_CONFIG } from './constants';
 import { AppNode, NodeType, SimulationResult, Entity, GlobalStats, HistoryPoint } from './types';
 import { analyzeFlow } from './services/geminiService';
@@ -62,13 +63,13 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 const simulator = new Simulator();
 
 const App: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, isDark } = useTheme();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
   const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<AppNode | null>(null);
-  
+
   // Simulation State
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationTime, setSimulationTime] = useState(0);
@@ -90,7 +91,7 @@ const App: React.FC = () => {
     bottleneckUtilization: 0,
     history: []
   });
-  
+
   // Visual entities
   const [movingEntities, setMovingEntities] = useState<Entity[]>([]);
 
@@ -98,6 +99,9 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<SimulationResult | null>(null);
+
+  // Settings State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
 
@@ -498,9 +502,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`flex h-screen w-screen overflow-hidden font-sans transition-colors duration-300 ${
-      theme === 'light' ? 'bg-white' : 'bg-[#020617]'
-    }`}>
+    <div
+      className="flex h-screen w-screen overflow-hidden font-sans theme-transition"
+      style={{ backgroundColor: 'var(--bg-primary)' }}
+    >
       <ReactFlowProvider>
         {/* Left Sidebar */}
         <Sidebar
@@ -519,24 +524,11 @@ const App: React.FC = () => {
            isWarmedUp={isWarmedUp}
            onSaveScenario={handleSaveScenario}
            onLoadScenario={handleLoadScenario}
-           theme={theme}
-           onToggleTheme={toggleTheme}
+           onOpenSettings={() => setIsSettingsOpen(true)}
         />
-        
+
         {/* Center Canvas */}
         <div className="flex-1 h-full relative flex flex-col" ref={reactFlowWrapper}>
-          <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
-             {/* Entity Layer */}
-             <div className="relative w-full h-full transform-gpu">
-                 {/* Needs to transform with viewport. Simplification: Just render if not panning heavily. 
-                     For true syncing, we'd use a CustomLayer in ReactFlow. 
-                     Here we use absolute overlay but it won't pan with zoom correctly without `useViewport`.
-                     Let's stick to Node status visualizations which are robust.
-                     OR: Just render entities if using screenToFlow logic reverse.
-                 */}
-             </div>
-          </div>
-
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -554,21 +546,14 @@ const App: React.FC = () => {
             minZoom={0.5}
             maxZoom={2}
           >
-            <Controls className={`${theme === 'light'
-              ? 'bg-white border border-slate-200 fill-slate-600'
-              : 'bg-slate-800 border border-slate-700 fill-slate-300'
-            }`} />
+            <Controls />
             <Background
-              color={theme === 'light' ? '#e2e8f0' : '#1e293b'}
+              color="var(--canvas-dot)"
               gap={24}
               size={1}
               variant={BackgroundVariant.Dots}
             />
             <MiniMap
-                className={`rounded-lg overflow-hidden ${theme === 'light'
-                  ? '!bg-slate-50 !border-slate-200'
-                  : '!bg-slate-900 !border-slate-800'
-                }`}
                 nodeColor={(n) => {
                     const t = n.data?.type;
                     if (t === NodeType.SOURCE) return '#3b82f6';
@@ -591,15 +576,19 @@ const App: React.FC = () => {
            simulationTime={simulationTime}
            warmupTime={warmupTime}
            isWarmedUp={isWarmedUp}
-           theme={theme}
         />
       </ReactFlowProvider>
 
-      <AnalysisModal 
+      <AnalysisModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         result={analysisResult}
         isLoading={isAnalyzing}
+      />
+
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </div>
   );

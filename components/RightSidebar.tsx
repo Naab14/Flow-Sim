@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { AppNode, NodeType, GlobalStats, HistoryPoint } from '../types';
 import { Zap, Settings, BarChart3, PanelRightClose, PanelRightOpen, Sliders, Activity, Clock, Layers, Target, AlertTriangle, TrendingUp, Gauge, Timer } from 'lucide-react';
 import KPIChart from './KPIChart';
+import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface RightSidebarProps {
   selectedNode: AppNode | null;
@@ -12,7 +14,6 @@ interface RightSidebarProps {
   simulationTime?: number;
   warmupTime?: number;
   isWarmedUp?: boolean;
-  theme?: 'light' | 'dark';
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -23,10 +24,11 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   nodes,
   simulationTime = 0,
   warmupTime = 0,
-  isWarmedUp = true,
-  theme = 'dark'
+  isWarmedUp = true
 }) => {
-  const isLight = theme === 'light';
+  const { isDark } = useTheme();
+  const { t } = useLanguage();
+  const isLight = !isDark;
   const [activeTab, setActiveTab] = useState<'dashboard' | 'properties' | 'analysis'>('dashboard');
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -71,9 +73,13 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   }
 
   return (
-    <div className={`w-96 flex flex-col h-full z-20 shadow-xl transition-all duration-300 ${
-      isLight ? 'bg-white border-l border-slate-200' : 'bg-[#0f172a] border-l border-slate-800'
-    }`}>
+    <div
+      className="w-96 flex flex-col h-full z-20 shadow-xl transition-all duration-300 theme-transition"
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        borderLeft: '1px solid var(--border-primary)'
+      }}
+    >
       {/* Tabs */}
       <div className={`flex items-center ${
         isLight ? 'border-b border-slate-200 bg-slate-50' : 'border-b border-slate-800 bg-slate-900/50'
@@ -93,7 +99,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               : `${isLight ? 'text-slate-400 hover:text-slate-600' : 'text-slate-500 hover:text-slate-300'}`}
           `}
         >
-          KPIs
+          {t('dashboard.kpis')}
           {activeTab === 'dashboard' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500"></div>}
         </button>
         <button
@@ -104,7 +110,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               : `${isLight ? 'text-slate-400 hover:text-slate-600' : 'text-slate-500 hover:text-slate-300'}`}
           `}
         >
-          Properties
+          {t('dashboard.properties')}
           {activeTab === 'properties' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
         </button>
         <button
@@ -115,7 +121,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               : `${isLight ? 'text-slate-400 hover:text-slate-600' : 'text-slate-500 hover:text-slate-300'}`}
           `}
         >
-          AI
+          {t('dashboard.analysis')}
           {activeTab === 'analysis' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500"></div>}
         </button>
       </div>
@@ -127,9 +133,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             <div className="space-y-4 animate-in fade-in duration-300">
                 <div className="flex items-center justify-between">
                     <h2 className={`text-lg font-bold flex items-center gap-2 ${isLight ? 'text-slate-800' : 'text-slate-100'}`}>
-                        <Activity className="text-emerald-500" /> Live Metrics
+                        <Activity className="text-emerald-500" /> {t('dashboard.title')}
                     </h2>
-                    <span className={`text-xs font-mono animate-pulse ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>● LIVE</span>
+                    <span className={`text-xs font-mono animate-pulse ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>● {t('dashboard.live')}</span>
                 </div>
 
                 {/* Warm-up Progress Indicator */}
@@ -137,9 +143,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                   <div className={`rounded-lg p-3 ${isLight ? 'bg-amber-50 border border-amber-200' : 'bg-amber-900/30 border border-amber-700/50'}`}>
                     <div className="flex items-center gap-2 mb-2">
                       <Timer className="text-amber-500 animate-pulse" size={16} />
-                      <span className={`text-xs font-bold ${isLight ? 'text-amber-700' : 'text-amber-300'}`}>Warm-up in Progress</span>
+                      <span className={`text-xs font-bold ${isLight ? 'text-amber-700' : 'text-amber-300'}`}>{t('warmup.inProgress')}</span>
                       <span className={`text-xs ml-auto ${isLight ? 'text-amber-600' : 'text-amber-400/70'}`}>
-                        {Math.max(0, warmupTime - simulationTime).toFixed(0)}s remaining
+                        {Math.max(0, warmupTime - simulationTime).toFixed(0)}s {t('warmup.remaining')}
                       </span>
                     </div>
                     <div className={`w-full rounded-full h-1.5 ${isLight ? 'bg-amber-100' : 'bg-slate-800'}`}>
@@ -148,7 +154,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                         style={{ width: `${warmupProgress}%` }}
                       />
                     </div>
-                    <p className={`text-[10px] mt-1 ${isLight ? 'text-amber-600/70' : 'text-amber-500/60'}`}>Stats will reset after warm-up completes</p>
+                    <p className={`text-[10px] mt-1 ${isLight ? 'text-amber-600/70' : 'text-amber-500/60'}`}>{t('warmup.statsReset')}</p>
                   </div>
                 )}
 
@@ -156,7 +162,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 {warmupTime > 0 && isWarmedUp && simulationTime < warmupTime + 10 && (
                   <div className={`rounded-lg p-3 flex items-center gap-2 ${isLight ? 'bg-emerald-50 border border-emerald-200' : 'bg-emerald-900/30 border border-emerald-700/50'}`}>
                     <Timer className="text-emerald-500" size={16} />
-                    <span className={`text-xs font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-300'}`}>Warm-up Complete - Stats Recording</span>
+                    <span className={`text-xs font-bold ${isLight ? 'text-emerald-700' : 'text-emerald-300'}`}>{t('warmup.complete')}</span>
                   </div>
                 )}
 
@@ -165,8 +171,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                   <div className={`rounded-lg p-3 flex items-center gap-3 ${isLight ? 'bg-red-50 border border-red-200' : 'bg-red-900/30 border border-red-700/50'}`}>
                     <AlertTriangle className="text-red-500 shrink-0" size={20} />
                     <div>
-                      <p className={`text-xs font-bold ${isLight ? 'text-red-700' : 'text-red-300'}`}>Bottleneck Detected</p>
-                      <p className={`text-xs ${isLight ? 'text-red-600' : 'text-red-400/80'}`}>{bottleneckNode.data.label} at {simulationData.bottleneckUtilization}% utilization</p>
+                      <p className={`text-xs font-bold ${isLight ? 'text-red-700' : 'text-red-300'}`}>{t('dashboard.bottleneckDetected')}</p>
+                      <p className={`text-xs ${isLight ? 'text-red-600' : 'text-red-400/80'}`}>{bottleneckNode.data.label} - {simulationData.bottleneckUtilization}% {t('dashboard.utilization')}</p>
                     </div>
                   </div>
                 )}
@@ -179,7 +185,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 }`}>
                     <div className="flex justify-between items-start mb-3">
                         <div>
-                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Overall Equipment Effectiveness</p>
+                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{t('dashboard.oee')}</p>
                             <p className={`text-3xl font-mono ${isLight ? 'text-slate-800' : 'text-white'}`}>{simulationData.oee.toFixed(1)}<span className={`text-lg ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>%</span></p>
                         </div>
                         <Gauge size={24} className="text-blue-500"/>
@@ -187,15 +193,15 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     {/* OEE Breakdown */}
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className={`p-2 rounded ${isLight ? 'bg-slate-100' : 'bg-slate-800/50'}`}>
-                        <span className={`block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>Availability</span>
+                        <span className={`block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>{t('dashboard.availability')}</span>
                         <span className="font-mono text-emerald-500">{simulationData.availability.toFixed(1)}%</span>
                       </div>
                       <div className={`p-2 rounded ${isLight ? 'bg-slate-100' : 'bg-slate-800/50'}`}>
-                        <span className={`block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>Performance</span>
+                        <span className={`block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>{t('dashboard.performance')}</span>
                         <span className="font-mono text-blue-500">{simulationData.performance.toFixed(1)}%</span>
                       </div>
                       <div className={`p-2 rounded ${isLight ? 'bg-slate-100' : 'bg-slate-800/50'}`}>
-                        <span className={`block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>Quality</span>
+                        <span className={`block ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>{t('dashboard.quality')}</span>
                         <span className="font-mono text-purple-500">{simulationData.quality.toFixed(1)}%</span>
                       </div>
                     </div>
@@ -209,13 +215,13 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 <div className={`rounded-lg p-4 ${isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-800/40 border border-slate-700'}`}>
                     <div className="flex justify-between items-end mb-2">
                         <div>
-                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Throughput</p>
-                            <p className={`text-2xl font-mono ${isLight ? 'text-slate-800' : 'text-white'}`}>{simulationData.throughput.toFixed(0)} <span className={`text-sm ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>u/hr</span></p>
-                            <p className={`text-xs ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>{simulationData.throughputPerMinute} units in last minute</p>
+                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{t('dashboard.throughput')}</p>
+                            <p className={`text-2xl font-mono ${isLight ? 'text-slate-800' : 'text-white'}`}>{simulationData.throughput.toFixed(0)} <span className={`text-sm ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>{t('dashboard.throughputUnit')}</span></p>
+                            <p className={`text-xs ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>{simulationData.throughputPerMinute} units/min</p>
                         </div>
                         <TrendingUp size={20} className="text-emerald-500 mb-2"/>
                     </div>
-                    <KPIChart data={simulationData.history} dataKey="throughput" color="#10b981" label="Throughput" />
+                    <KPIChart data={simulationData.history} dataKey="throughput" color="#10b981" label={t('dashboard.throughput')} />
                 </div>
 
                 {/* Stats Grid */}
@@ -224,7 +230,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     <div className={`rounded-lg p-3 ${isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-800/40 border border-slate-700'}`}>
                         <div className="flex items-center gap-2 mb-1">
                             <Layers size={14} className="text-amber-500"/>
-                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>WIP</p>
+                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{t('dashboard.wip')}</p>
                         </div>
                         <p className={`text-xl font-mono ${isLight ? 'text-slate-800' : 'text-white'}`}>{simulationData.wip}</p>
                     </div>
@@ -233,7 +239,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     <div className={`rounded-lg p-3 ${isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-800/40 border border-slate-700'}`}>
                         <div className="flex items-center gap-2 mb-1">
                             <Clock size={14} className="text-cyan-500"/>
-                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Avg Lead Time</p>
+                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{t('dashboard.leadTime')}</p>
                         </div>
                         <p className={`text-xl font-mono ${isLight ? 'text-slate-800' : 'text-white'}`}>{simulationData.averageLeadTime.toFixed(1)}<span className={`text-sm ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>s</span></p>
                     </div>
@@ -242,7 +248,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     <div className={`rounded-lg p-3 ${isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-800/40 border border-slate-700'}`}>
                         <div className="flex items-center gap-2 mb-1">
                             <Target size={14} className="text-green-500"/>
-                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Completed</p>
+                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{t('dashboard.completed')}</p>
                         </div>
                         <p className={`text-xl font-mono ${isLight ? 'text-slate-800' : 'text-white'}`}>{simulationData.completedCount}</p>
                     </div>
@@ -251,7 +257,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     <div className={`rounded-lg p-3 ${isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-800/40 border border-slate-700'}`}>
                         <div className="flex items-center gap-2 mb-1">
                             <Zap size={14} className="text-blue-500"/>
-                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>Generated</p>
+                            <p className={`text-xs uppercase font-semibold ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{t('dashboard.generated')}</p>
                         </div>
                         <p className={`text-xl font-mono ${isLight ? 'text-slate-800' : 'text-white'}`}>{simulationData.totalGenerated}</p>
                     </div>
@@ -259,8 +265,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
                 {/* WIP Chart */}
                 <div className={`rounded-lg p-4 ${isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-800/40 border border-slate-700'}`}>
-                    <p className={`text-xs uppercase font-semibold mb-2 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>WIP Over Time</p>
-                    <KPIChart data={simulationData.history} dataKey="wip" color="#f59e0b" label="WIP" />
+                    <p className={`text-xs uppercase font-semibold mb-2 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>{t('dashboard.wipOverTime')}</p>
+                    <KPIChart data={simulationData.history} dataKey="wip" color="#f59e0b" label={t('dashboard.wip')} />
                 </div>
             </div>
         )}
@@ -430,8 +436,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
               <Settings size={48} className={isLight ? 'text-slate-300' : 'text-slate-600'} strokeWidth={1} />
               <div>
-                <p className={isLight ? 'text-slate-500 font-medium' : 'text-slate-400 font-medium'}>Select a Node</p>
-                <p className={`text-sm mt-1 ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>Click a station to edit properties.</p>
+                <p className={isLight ? 'text-slate-500 font-medium' : 'text-slate-400 font-medium'}>{t('properties.selectNode')}</p>
+                <p className={`text-sm mt-1 ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>{t('properties.clickToEdit')}</p>
               </div>
             </div>
           )
@@ -442,16 +448,16 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 <div className={`p-4 rounded-lg ${isLight ? 'bg-slate-50 border border-slate-200' : 'bg-slate-800/30 border border-slate-700/50'}`}>
                 <div className="flex items-center gap-2 mb-2">
                     <Zap className="text-purple-500" size={18} />
-                    <h3 className={`font-bold ${isLight ? 'text-slate-700' : 'text-slate-200'}`}>AI Optimization</h3>
+                    <h3 className={`font-bold ${isLight ? 'text-slate-700' : 'text-slate-200'}`}>{t('analysis.title')}</h3>
                 </div>
                 <p className={`text-xs leading-relaxed mb-4 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-                    Use Gemini to analyze your production line layout, identify bottlenecks, and suggest Six Sigma improvements.
+                    {t('analysis.description')}
                 </p>
                 <button
                     onClick={onAnalyze}
                     className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-semibold shadow-lg shadow-purple-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
-                    Analyze Flow
+                    {t('analysis.analyzeFlow')}
                     <Zap size={16} className="fill-white" />
                 </button>
                 </div>
