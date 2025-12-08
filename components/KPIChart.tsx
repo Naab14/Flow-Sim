@@ -10,8 +10,8 @@ interface KPIChartProps {
 }
 
 const KPIChart: React.FC<KPIChartProps> = ({ data, dataKey, color, label }) => {
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
+  const { isDark } = useTheme();
+  const isLight = !isDark;
 
   return (
     <div className="h-24 w-full">

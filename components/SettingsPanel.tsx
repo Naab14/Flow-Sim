@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useTheme, ThemeConfig } from '../contexts/ThemeContext';
+import { useTheme, ColorSchemeConfig } from '../contexts/ThemeContext';
 import { useLanguage, LanguageConfig } from '../contexts/LanguageContext';
-import { Settings, X, Palette, Globe, Check } from 'lucide-react';
+import { Settings, X, Palette, Globe, Check, Sun, Moon } from 'lucide-react';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -9,7 +9,7 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
-  const { theme, setTheme, availableThemes, isDark } = useTheme();
+  const { colorScheme, setColorScheme, availableSchemes, isDark, toggleMode } = useTheme();
   const { language, setLanguage, availableLanguages, t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'theme' | 'language'>('theme');
 
@@ -102,44 +102,85 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         {/* Content */}
         <div className="p-6">
           {activeTab === 'theme' && (
-            <div className="space-y-3">
-              {availableThemes.map((themeOption: ThemeConfig) => (
+            <div className="space-y-4">
+              {/* Dark/Light Toggle */}
+              <div
+                className="p-4 rounded-xl flex items-center justify-between"
+                style={{
+                  backgroundColor: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-primary)'
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  {isDark ? <Moon size={20} style={{ color: 'var(--accent-primary)' }} /> : <Sun size={20} style={{ color: 'var(--accent-primary)' }} />}
+                  <div>
+                    <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {isDark ? 'Dark Mode' : 'Light Mode'}
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {isDark ? 'Easy on the eyes' : 'Bright and clean'}
+                    </p>
+                  </div>
+                </div>
                 <button
-                  key={themeOption.id}
-                  onClick={() => setTheme(themeOption.id)}
-                  className="w-full p-4 rounded-xl flex items-center gap-4 transition-all hover:scale-[1.01]"
+                  onClick={toggleMode}
+                  className="relative w-14 h-7 rounded-full transition-colors"
                   style={{
-                    backgroundColor: theme === themeOption.id ? 'var(--bg-hover)' : 'var(--bg-tertiary)',
-                    border: theme === themeOption.id
-                      ? '2px solid var(--accent-primary)'
-                      : '2px solid var(--border-primary)'
+                    backgroundColor: isDark ? 'var(--accent-primary)' : 'var(--border-secondary)'
                   }}
                 >
-                  <span className="text-2xl">{themeOption.icon}</span>
-                  <div className="flex-1 text-left">
-                    <div
-                      className="font-semibold"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      {themeOption.name}
-                    </div>
-                    <div
-                      className="text-xs mt-0.5"
-                      style={{ color: 'var(--text-muted)' }}
-                    >
-                      {themeOption.description}
-                    </div>
-                  </div>
-                  {theme === themeOption.id && (
-                    <div
-                      className="p-1 rounded-full"
-                      style={{ backgroundColor: 'var(--accent-primary)' }}
-                    >
-                      <Check size={14} className="text-white" />
-                    </div>
-                  )}
+                  <div
+                    className="absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform"
+                    style={{
+                      transform: isDark ? 'translateX(32px)' : 'translateX(4px)'
+                    }}
+                  />
                 </button>
-              ))}
+              </div>
+
+              {/* Color Schemes */}
+              <p className="text-xs uppercase font-semibold tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                Color Scheme
+              </p>
+              <div className="space-y-3">
+                {availableSchemes.map((scheme: ColorSchemeConfig) => (
+                  <button
+                    key={scheme.id}
+                    onClick={() => setColorScheme(scheme.id)}
+                    className="w-full p-4 rounded-xl flex items-center gap-4 transition-all hover:scale-[1.01]"
+                    style={{
+                      backgroundColor: colorScheme === scheme.id ? 'var(--bg-hover)' : 'var(--bg-tertiary)',
+                      border: colorScheme === scheme.id
+                        ? '2px solid var(--accent-primary)'
+                        : '2px solid var(--border-primary)'
+                    }}
+                  >
+                    <span className="text-2xl">{scheme.icon}</span>
+                    <div className="flex-1 text-left">
+                      <div
+                        className="font-semibold"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {scheme.name}
+                      </div>
+                      <div
+                        className="text-xs mt-0.5"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        {scheme.description}
+                      </div>
+                    </div>
+                    {colorScheme === scheme.id && (
+                      <div
+                        className="p-1 rounded-full"
+                        style={{ backgroundColor: 'var(--accent-primary)' }}
+                      >
+                        <Check size={14} className="text-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

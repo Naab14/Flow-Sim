@@ -6,8 +6,8 @@ import { Factory, Box, ClipboardCheck, Play, ArrowRight, Database, Ban, Hourglas
 import { useTheme } from '../contexts/ThemeContext';
 
 const CustomNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
+  const { isDark } = useTheme();
+  const isLight = !isDark;
   const config = NODE_TYPES_CONFIG[data.type];
   
   const getIcon = () => {

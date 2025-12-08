@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { NodeType } from '../types';
-import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer, Save, FolderOpen, Settings } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer, Save, FolderOpen, Settings, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLoadScenario,
   onOpenSettings
 }) => {
-  const { isDark } = useTheme();
+  const { isDark, toggleMode } = useTheme();
   const { t } = useLanguage();
   const isLight = !isDark;
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -96,6 +96,19 @@ const Sidebar: React.FC<SidebarProps> = ({
            }`}>LeanFlow</h1>}
         </div>
         <div className="flex items-center gap-2">
+          {!isCollapsed && (
+            <button
+              onClick={toggleMode}
+              className={`p-1.5 rounded transition-colors ${
+                isLight
+                  ? 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+              }`}
+              title={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
+              {isLight ? <Moon size={16} /> : <Sun size={16} />}
+            </button>
+          )}
           {!isCollapsed && (
             <button
               onClick={onOpenSettings}

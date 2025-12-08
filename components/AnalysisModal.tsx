@@ -12,8 +12,8 @@ interface AnalysisModalProps {
 }
 
 const AnalysisModal: React.FC<AnalysisModalProps> = ({ result, isOpen, onClose, isLoading }) => {
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
+  const { isDark } = useTheme();
+  const isLight = !isDark;
 
   if (!isOpen) return null;
 
