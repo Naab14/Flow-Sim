@@ -7,7 +7,7 @@ interface NodeState {
   blockedEntity: Entity | null;
   lastUpdate: number;
   stats: StationStats;
-  status: 'active' | 'idle' | 'blocked' | 'starved';
+  status: 'active' | 'idle' | 'blocked' | 'starved' | 'break';
   config: AppNode['data'];
 }
 
@@ -77,6 +77,33 @@ export class Simulator {
     return this.speedMultiplier;
   }
 
+  /**
+   * Check if a node is currently on a scheduled break
+   * Manufacturing analogy: Is the operator on lunch break or shift change?
+   */
+  private isNodeOnBreak(nodeId: string): boolean {
+    const state = this.nodes.get(nodeId);
+    if (!state) return false;
+
+    const shiftPattern = state.config.shiftPattern;
+    if (!shiftPattern || !shiftPattern.enabled) return false;
+
+    // Convert simulation time to minutes within the shift cycle
+    const shiftDurationMinutes = shiftPattern.shiftDurationHours * 60;
+    const simTimeMinutes = this.currentTime / 60;
+    const minuteInShift = simTimeMinutes % shiftDurationMinutes;
+
+    // Check each break period
+    for (const breakPeriod of shiftPattern.breaks) {
+      const breakEnd = breakPeriod.startMinute + breakPeriod.durationMinutes;
+      if (minuteInShift >= breakPeriod.startMinute && minuteInShift < breakEnd) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   public initialize(nodes: AppNode[], edges: AppEdge[]) {
     this.currentTime = 0;
     this.eventQueue.clear();
@@ -108,6 +135,7 @@ export class Simulator {
           busyTime: 0,
           blockedTime: 0,
           starvedTime: 0,
+          breakTime: 0,
           utilization: 0,
           queueLength: 0,
           avgCycleTime: 0
@@ -245,6 +273,13 @@ export class Simulator {
 
     // If we're blocked, can't start new work (holding output)
     if (state.status === 'blocked') return;
+
+    // Check if node is on a scheduled break
+    // Manufacturing analogy: Operator went on break, machine is idle
+    if (this.isNodeOnBreak(nodeId)) {
+      state.status = 'break';
+      return;
+    }
 
     // Check Capacity
     const capacity = state.config.capacity || 1;
@@ -498,6 +533,7 @@ export class Simulator {
         state.stats.busyTime = 0;
         state.stats.blockedTime = 0;
         state.stats.starvedTime = 0;
+        state.stats.breakTime = 0;
         // Note: Keep entities in queues - we're just resetting measurements
       });
     }
@@ -510,10 +546,21 @@ export class Simulator {
     // (Counters like totalProcessed are incremented elsewhere, only after warm-up matters for display)
     if (this.isWarmedUp || this.warmupTime === 0) {
       // Update node utilization timers
-      this.nodes.forEach(state => {
+      this.nodes.forEach((state, nodeId) => {
+        // Check if node should transition in/out of break status
+        const onBreak = this.isNodeOnBreak(nodeId);
+        if (onBreak && state.status !== 'break' && state.status !== 'active') {
+          state.status = 'break';
+        } else if (!onBreak && state.status === 'break') {
+          // Break ended - try to resume processing
+          state.status = 'idle';
+          this.tryStartProcess(nodeId);
+        }
+
         if (state.status === 'active') state.stats.busyTime += 0.1; // approx tick
         if (state.status === 'blocked') state.stats.blockedTime += 0.1;
         if (state.status === 'starved') state.stats.starvedTime += 0.1;
+        if (state.status === 'break') state.stats.breakTime += 0.1;
 
         // Calculate utilization based on time since warm-up (or total time if no warm-up)
         const effectiveTime = this.warmupTime > 0

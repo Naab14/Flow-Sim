@@ -1,5 +1,18 @@
 import { Node, Edge } from 'reactflow';
 
+// Shift patterns for scheduled downtime
+export interface BreakPeriod {
+  startMinute: number; // Minutes from shift start (e.g., 120 = 2 hours into shift)
+  durationMinutes: number; // Duration in minutes
+  name: string; // e.g., "Lunch Break", "15min Break"
+}
+
+export interface ShiftPattern {
+  enabled: boolean;
+  shiftDurationHours: number; // Total shift length (e.g., 8 hours)
+  breaks: BreakPeriod[];
+}
+
 export enum NodeType {
   SOURCE = 'source',
   PROCESS = 'process',
@@ -27,6 +40,7 @@ export interface StationStats {
   busyTime: number;
   blockedTime: number;
   starvedTime: number;
+  breakTime: number; // Time spent on scheduled breaks
   utilization: number; // 0-100%
   queueLength: number;
   avgCycleTime: number;
@@ -41,9 +55,12 @@ export interface NodeData {
   batchSize: number;
   capacity: number; // Max concurrent units (or storage size for inventory)
 
+  // Shift Pattern (optional)
+  shiftPattern?: ShiftPattern;
+
   // Simulation State (Real-time)
   stats: StationStats;
-  status: 'active' | 'idle' | 'blocked' | 'starved';
+  status: 'active' | 'idle' | 'blocked' | 'starved' | 'break';
   progress: number; // 0-100%
 }
 

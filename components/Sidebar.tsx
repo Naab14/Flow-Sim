@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { NodeType } from '../types';
-import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer, Save, FolderOpen, Sun, Moon } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer, Save, FolderOpen, Settings, Sun, Moon, GitCompare } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface SidebarProps {
   simulationTime: number;
@@ -18,8 +20,8 @@ interface SidebarProps {
   isWarmedUp: boolean;
   onSaveScenario: () => void;
   onLoadScenario: (file: File) => void;
-  theme: 'light' | 'dark';
-  onToggleTheme: () => void;
+  onOpenSettings: () => void;
+  onOpenComparison: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -38,10 +40,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   isWarmedUp,
   onSaveScenario,
   onLoadScenario,
-  theme,
-  onToggleTheme
+  onOpenSettings,
+  onOpenComparison
 }) => {
-  const isLight = theme === 'light';
+  const { isDark, toggleMode } = useTheme();
+  const { t } = useLanguage();
+  const isLight = !isDark;
   const [isCollapsed, setIsCollapsed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,11 +65,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const items = [
-    { type: NodeType.SOURCE, label: 'Source', desc: 'Generates entities', icon: <Play size={20} className="fill-current" />, color: 'text-blue-400', border: 'border-blue-500/30 hover:border-blue-500' },
-    { type: NodeType.PROCESS, label: 'Process', desc: 'Machine/Workstation', icon: <Factory size={20} />, color: 'text-emerald-400', border: 'border-emerald-500/30 hover:border-emerald-500' },
-    { type: NodeType.INVENTORY, label: 'Buffer', desc: 'Limited capacity storage', icon: <Box size={20} />, color: 'text-amber-400', border: 'border-amber-500/30 hover:border-amber-500' },
-    { type: NodeType.QUALITY, label: 'Inspection', desc: 'Quality Check point', icon: <ClipboardCheck size={20} />, color: 'text-purple-400', border: 'border-purple-500/30 hover:border-purple-500' },
-    { type: NodeType.SHIPPING, label: 'Shipping', desc: 'Exit point', icon: <ArrowRight size={20} />, color: 'text-indigo-400', border: 'border-indigo-500/30 hover:border-indigo-500' },
+    { type: NodeType.SOURCE, labelKey: 'sidebar.source' as const, descKey: 'sidebar.sourceDesc' as const, icon: <Play size={20} className="fill-current" />, color: 'text-blue-400', border: 'border-blue-500/30 hover:border-blue-500' },
+    { type: NodeType.PROCESS, labelKey: 'sidebar.process' as const, descKey: 'sidebar.processDesc' as const, icon: <Factory size={20} />, color: 'text-emerald-400', border: 'border-emerald-500/30 hover:border-emerald-500' },
+    { type: NodeType.INVENTORY, labelKey: 'sidebar.buffer' as const, descKey: 'sidebar.bufferDesc' as const, icon: <Box size={20} />, color: 'text-amber-400', border: 'border-amber-500/30 hover:border-amber-500' },
+    { type: NodeType.QUALITY, labelKey: 'sidebar.inspection' as const, descKey: 'sidebar.inspectionDesc' as const, icon: <ClipboardCheck size={20} />, color: 'text-purple-400', border: 'border-purple-500/30 hover:border-purple-500' },
+    { type: NodeType.SHIPPING, labelKey: 'sidebar.shipping' as const, descKey: 'sidebar.shippingDesc' as const, icon: <ArrowRight size={20} />, color: 'text-indigo-400', border: 'border-indigo-500/30 hover:border-indigo-500' },
   ];
 
   const formatTime = (seconds: number) => {
@@ -77,11 +81,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div
-       className={`${isCollapsed ? 'w-20' : 'w-72'} flex flex-col h-full z-20 shadow-xl transition-all duration-300 ease-in-out ${
-         isLight
-           ? 'bg-white border-r border-slate-200'
-           : 'bg-[#0f172a] border-r border-slate-800'
-       }`}
+       className={`${isCollapsed ? 'w-20' : 'w-72'} flex flex-col h-full z-20 shadow-xl transition-all duration-300 ease-in-out theme-transition`}
+       style={{
+         backgroundColor: 'var(--bg-secondary)',
+         borderRight: '1px solid var(--border-primary)'
+       }}
     >
       {/* Header */}
       <div className={`p-5 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} transition-all ${
@@ -96,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex items-center gap-2">
           {!isCollapsed && (
             <button
-              onClick={onToggleTheme}
+              onClick={toggleMode}
               className={`p-1.5 rounded transition-colors ${
                 isLight
                   ? 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
@@ -105,6 +109,19 @@ const Sidebar: React.FC<SidebarProps> = ({
               title={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
             >
               {isLight ? <Moon size={16} /> : <Sun size={16} />}
+            </button>
+          )}
+          {!isCollapsed && (
+            <button
+              onClick={onOpenSettings}
+              className={`p-1.5 rounded transition-colors ${
+                isLight
+                  ? 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+              }`}
+              title={t('settings.preferences')}
+            >
+              <Settings size={16} />
             </button>
           )}
           {!isCollapsed && (
@@ -130,7 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div>
            {!isCollapsed && <h2 className={`text-xs font-bold uppercase tracking-widest mb-4 whitespace-nowrap ${
              isLight ? 'text-slate-400' : 'text-slate-500'
-           }`}>Building Blocks</h2>}
+           }`}>{t('sidebar.buildingBlocks')}</h2>}
            
            <div className="flex flex-col gap-3">
              {items.map((item) => (
@@ -143,9 +160,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                       : 'bg-slate-800/50 hover:bg-slate-800'
                     }
                  `}
-                 onDragStart={(event) => onDragStart(event, item.type, item.label)}
+                 onDragStart={(event) => onDragStart(event, item.type, t(item.labelKey))}
                  draggable
-                 title={isCollapsed ? item.label : undefined}
+                 title={isCollapsed ? t(item.labelKey) : undefined}
                >
                  <div className={`p-2 rounded shrink-0 ${item.color} ${
                    isLight ? 'bg-slate-200' : 'bg-slate-900'
@@ -156,10 +173,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <div className="min-w-0">
                       <span className={`block text-sm font-semibold truncate ${
                         isLight ? 'text-slate-700 group-hover:text-slate-900' : 'text-slate-200 group-hover:text-white'
-                      }`}>{item.label}</span>
+                      }`}>{t(item.labelKey)}</span>
                       <span className={`block text-[10px] truncate ${
                         isLight ? 'text-slate-400' : 'text-slate-500'
-                      }`}>{item.desc}</span>
+                      }`}>{t(item.descKey)}</span>
                     </div>
                  )}
                </div>
@@ -170,7 +187,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div>
            {!isCollapsed && <h2 className={`text-xs font-bold uppercase tracking-widest mb-4 whitespace-nowrap ${
              isLight ? 'text-slate-400' : 'text-slate-500'
-           }`}>Controls</h2>}
+           }`}>{t('sidebar.controls')}</h2>}
            <div className="flex flex-col gap-2">
              <div className={`flex ${isCollapsed ? 'flex-col' : 'flex-row'} gap-2`}>
                 <button
@@ -182,10 +199,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     }
                     ${isCollapsed ? 'p-3 w-full aspect-square' : 'flex-1 py-3'}
                   `}
-                  title={isPlaying ? "Pause" : "Start"}
+                  title={isPlaying ? t('sidebar.pause') : t('sidebar.start')}
                 >
                    {isPlaying ? <Pause size={18} className="fill-current" /> : <Play size={18} className="fill-current" />}
-                   {!isCollapsed && (isPlaying ? 'Pause' : 'Start')}
+                   {!isCollapsed && (isPlaying ? t('sidebar.pause') : t('sidebar.start'))}
                 </button>
                 <button
                   onClick={onReset}
@@ -196,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                        : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700'
                      }
                   `}
-                  title="Reset"
+                  title={t('sidebar.reset')}
                 >
                   <RotateCcw size={18} />
                 </button>
@@ -207,7 +224,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                <div className="mt-2">
                  <div className="flex items-center gap-2 mb-1.5">
                    <FastForward size={14} className={isLight ? 'text-slate-400' : 'text-slate-500'} />
-                   <span className={`text-xs font-semibold uppercase ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>Speed</span>
+                   <span className={`text-xs font-semibold uppercase ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>{t('sidebar.speed')}</span>
                  </div>
                  <div className="flex gap-1">
                    {[1, 2, 5, 10].map(speed => (
@@ -237,12 +254,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                  <div className="flex items-center justify-between mb-1.5">
                    <div className="flex items-center gap-2">
                      <Timer size={14} className={isLight ? 'text-slate-400' : 'text-slate-500'} />
-                     <span className={`text-xs font-semibold uppercase ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>Warm-up</span>
+                     <span className={`text-xs font-semibold uppercase ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>{t('sidebar.warmup')}</span>
                    </div>
                    {isWarmedUp ? (
-                     <span className="text-[10px] text-emerald-500 font-semibold">READY</span>
+                     <span className="text-[10px] text-emerald-500 font-semibold">{t('sidebar.warmupReady')}</span>
                    ) : warmupTime > 0 ? (
-                     <span className="text-[10px] text-amber-500 font-semibold animate-pulse">WARMING</span>
+                     <span className="text-[10px] text-amber-500 font-semibold animate-pulse">{t('sidebar.warmupWarming')}</span>
                    ) : null}
                  </div>
                  <div className="flex gap-1">
@@ -260,13 +277,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                          }
                          ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}
                        `}
-                       title={time === 0 ? 'No warm-up' : `${time}s warm-up period`}
+                       title={time === 0 ? t('sidebar.warmupOff') : `${time}s`}
                      >
-                       {time === 0 ? 'Off' : `${time}s`}
+                       {time === 0 ? t('sidebar.warmupOff') : `${time}s`}
                      </button>
                    ))}
                  </div>
-                 <p className={`text-[10px] mt-1 ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>Stats reset after warm-up</p>
+                 <p className={`text-[10px] mt-1 ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>{t('sidebar.warmupNote')}</p>
                </div>
              )}
 
@@ -279,10 +296,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                      : 'bg-slate-800 text-blue-400 hover:text-white hover:bg-slate-700 hover:border-blue-500/50 border border-slate-700'
                    }
                 `}
-                title="Auto Layout"
+                title={t('sidebar.autoLayout')}
              >
                 <Network size={18} />
-                {!isCollapsed && <span className="text-sm font-medium">Auto Layout</span>}
+                {!isCollapsed && <span className="text-sm font-medium">{t('sidebar.autoLayout')}</span>}
              </button>
 
              <button
@@ -294,10 +311,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                      : 'bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 hover:border-emerald-500/50 border border-slate-700'
                    }
                 `}
-                title="Export Data"
+                title={t('sidebar.exportCsv')}
              >
                 <Download size={18} />
-                {!isCollapsed && <span className="text-sm font-medium">Export CSV</span>}
+                {!isCollapsed && <span className="text-sm font-medium">{t('sidebar.exportCsv')}</span>}
              </button>
 
              {/* Scenario Save/Load */}
@@ -311,10 +328,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                        : 'bg-slate-800 text-slate-400 hover:text-cyan-400 hover:bg-slate-700 hover:border-cyan-500/50 border border-slate-700'
                      }
                   `}
-                  title="Save Scenario"
+                  title={t('sidebar.save')}
                >
                   <Save size={16} />
-                  {!isCollapsed && <span className="text-sm font-medium">Save</span>}
+                  {!isCollapsed && <span className="text-sm font-medium">{t('sidebar.save')}</span>}
                </button>
                <button
                   onClick={() => fileInputRef.current?.click()}
@@ -325,10 +342,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                        : 'bg-slate-800 text-slate-400 hover:text-amber-400 hover:bg-slate-700 hover:border-amber-500/50 border border-slate-700'
                      }
                   `}
-                  title="Load Scenario"
+                  title={t('sidebar.load')}
                >
                   <FolderOpen size={16} />
-                  {!isCollapsed && <span className="text-sm font-medium">Load</span>}
+                  {!isCollapsed && <span className="text-sm font-medium">{t('sidebar.load')}</span>}
                </button>
                <input
                   ref={fileInputRef}
@@ -338,6 +355,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                   className="hidden"
                />
              </div>
+
+             {/* Compare Scenarios */}
+             <button
+                onClick={onOpenComparison}
+                className={`rounded transition-all flex items-center justify-center gap-2
+                   ${isCollapsed ? 'p-3 w-full aspect-square' : 'py-2 px-3'}
+                   ${isLight
+                     ? 'bg-slate-100 text-slate-500 hover:text-purple-600 hover:bg-slate-200 hover:border-purple-300 border border-slate-200'
+                     : 'bg-slate-800 text-slate-400 hover:text-purple-400 hover:bg-slate-700 hover:border-purple-500/50 border border-slate-700'
+                   }
+                `}
+                title={t('sidebar.compare')}
+             >
+                <GitCompare size={16} />
+                {!isCollapsed && <span className="text-sm font-medium">{t('sidebar.compare')}</span>}
+             </button>
            </div>
 
            {!isCollapsed && (

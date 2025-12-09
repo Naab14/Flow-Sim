@@ -20,6 +20,8 @@ import Sidebar from './components/Sidebar';
 import RightSidebar from './components/RightSidebar';
 import CustomNode from './components/CustomNode';
 import AnalysisModal from './components/AnalysisModal';
+import SettingsPanel from './components/SettingsPanel';
+import ScenarioComparisonModal from './components/ScenarioComparisonModal';
 import { INITIAL_NODES, INITIAL_EDGES, NODE_TYPES_CONFIG } from './constants';
 import { AppNode, NodeType, SimulationResult, Entity, GlobalStats, HistoryPoint } from './types';
 import { analyzeFlow } from './services/geminiService';
@@ -62,13 +64,13 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 const simulator = new Simulator();
 
 const App: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, isDark } = useTheme();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
   const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<AppNode | null>(null);
-  
+
   // Simulation State
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationTime, setSimulationTime] = useState(0);
@@ -90,7 +92,7 @@ const App: React.FC = () => {
     bottleneckUtilization: 0,
     history: []
   });
-  
+
   // Visual entities
   const [movingEntities, setMovingEntities] = useState<Entity[]>([]);
 
@@ -98,6 +100,13 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<SimulationResult | null>(null);
+
+  // Settings State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+
+  // Clipboard for copy/paste
+  const [clipboardNode, setClipboardNode] = useState<AppNode | null>(null);
 
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
 
@@ -151,7 +160,7 @@ const App: React.FC = () => {
           batchSize: 1,
           capacity: type === NodeType.INVENTORY ? 10 : 1,
           stats: {
-              totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0
+              totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, breakTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0
           },
           status: 'idle',
           progress: 0
@@ -251,7 +260,8 @@ const App: React.FC = () => {
           cycleTimeVariation: n.data.cycleTimeVariation || 0,
           defectRate: n.data.defectRate,
           batchSize: n.data.batchSize,
-          capacity: n.data.capacity
+          capacity: n.data.capacity,
+          shiftPattern: (n.data as any).shiftPattern
         }
       })),
       edges: edges.map(e => ({
@@ -308,11 +318,13 @@ const App: React.FC = () => {
           data: {
             ...n.data,
             cycleTimeVariation: n.data.cycleTimeVariation || 0,
+            shiftPattern: n.data.shiftPattern || undefined,
             stats: {
               totalProcessed: 0,
               busyTime: 0,
               blockedTime: 0,
               starvedTime: 0,
+              breakTime: 0,
               utilization: 0,
               queueLength: 0,
               avgCycleTime: 0
@@ -374,6 +386,165 @@ const App: React.FC = () => {
     }
   };
 
+  // Delete selected node
+  const handleDeleteNode = useCallback(() => {
+    if (selectedNode) {
+      setNodes(nds => nds.filter(n => n.id !== selectedNode.id));
+      setEdges(eds => eds.filter(e => e.source !== selectedNode.id && e.target !== selectedNode.id));
+      setSelectedNode(null);
+    }
+  }, [selectedNode, setNodes, setEdges]);
+
+  // Duplicate selected node
+  const handleDuplicateNode = useCallback(() => {
+    if (selectedNode) {
+      const newNode: AppNode = {
+        id: `node_${Date.now()}`,
+        type: 'custom',
+        position: {
+          x: selectedNode.position.x + 50,
+          y: selectedNode.position.y + 50
+        },
+        data: {
+          ...selectedNode.data,
+          label: `${selectedNode.data.label} (copy)`,
+          stats: {
+            totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, breakTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0
+          },
+          status: 'idle',
+          progress: 0
+        },
+      };
+      setNodes(nds => nds.concat(newNode));
+      setSelectedNode(newNode);
+    }
+  }, [selectedNode, setNodes]);
+
+  // Copy selected node to clipboard
+  const handleCopyNode = useCallback(() => {
+    if (selectedNode) {
+      setClipboardNode(selectedNode);
+    }
+  }, [selectedNode]);
+
+  // Paste node from clipboard
+  const handlePasteNode = useCallback(() => {
+    if (clipboardNode) {
+      const newNode: AppNode = {
+        id: `node_${Date.now()}`,
+        type: 'custom',
+        position: {
+          x: clipboardNode.position.x + 100,
+          y: clipboardNode.position.y + 50
+        },
+        data: {
+          ...clipboardNode.data,
+          label: `${clipboardNode.data.label} (copy)`,
+          stats: {
+            totalProcessed: 0, busyTime: 0, blockedTime: 0, starvedTime: 0, breakTime: 0, utilization: 0, queueLength: 0, avgCycleTime: 0
+          },
+          status: 'idle',
+          progress: 0
+        },
+      };
+      setNodes(nds => nds.concat(newNode));
+      setSelectedNode(newNode);
+    }
+  }, [clipboardNode, setNodes]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      // Don't trigger when modals are open
+      if (isModalOpen || isSettingsOpen || isComparisonOpen) {
+        if (e.key === 'Escape') {
+          setIsModalOpen(false);
+          setIsSettingsOpen(false);
+          setIsComparisonOpen(false);
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case ' ': // Space - Play/Pause
+          e.preventDefault();
+          setIsPlaying(prev => !prev);
+          break;
+        case 'r': // R - Reset
+        case 'R':
+          if (!e.metaKey && !e.ctrlKey) {
+            handleReset();
+          }
+          break;
+        case 'l': // L - Auto Layout
+        case 'L':
+          if (!e.metaKey && !e.ctrlKey) {
+            onLayout();
+          }
+          break;
+        case 's': // Ctrl/Cmd+S - Save scenario
+        case 'S':
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            handleSaveScenario();
+          }
+          break;
+        case 'Delete':
+        case 'Backspace':
+          if (selectedNode && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            handleDeleteNode();
+          }
+          break;
+        case 'd': // Ctrl/Cmd+D - Duplicate
+        case 'D':
+          if ((e.metaKey || e.ctrlKey) && selectedNode) {
+            e.preventDefault();
+            handleDuplicateNode();
+          }
+          break;
+        case 'c': // Ctrl/Cmd+C - Copy
+        case 'C':
+          if ((e.metaKey || e.ctrlKey) && selectedNode) {
+            e.preventDefault();
+            handleCopyNode();
+          }
+          break;
+        case 'v': // Ctrl/Cmd+V - Paste
+        case 'V':
+          if ((e.metaKey || e.ctrlKey) && clipboardNode) {
+            e.preventDefault();
+            handlePasteNode();
+          }
+          break;
+        case 'Escape':
+          setSelectedNode(null);
+          break;
+        case '1':
+          if (!e.metaKey && !e.ctrlKey) setSimulationSpeed(1);
+          break;
+        case '2':
+          if (!e.metaKey && !e.ctrlKey) setSimulationSpeed(2);
+          break;
+        case '3':
+          if (!e.metaKey && !e.ctrlKey) setSimulationSpeed(5);
+          break;
+        case '4':
+          if (!e.metaKey && !e.ctrlKey) setSimulationSpeed(10);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNode, isModalOpen, isSettingsOpen, isComparisonOpen, handleDeleteNode, handleDuplicateNode, handleCopyNode, handlePasteNode, clipboardNode, onLayout]);
+
   const handleReset = () => {
       setIsPlaying(false);
       setSimulationTime(0);
@@ -398,7 +569,7 @@ const App: React.FC = () => {
       });
       setNodes(nds => nds.map(n => ({
           ...n,
-          data: { ...n.data, status: 'idle', progress: 0, stats: { ...n.data.stats, queueLength: 0, utilization: 0, totalProcessed: 0 } }
+          data: { ...n.data, status: 'idle', progress: 0, stats: { ...n.data.stats, queueLength: 0, utilization: 0, totalProcessed: 0, breakTime: 0 } }
       })));
   };
 
@@ -498,9 +669,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`flex h-screen w-screen overflow-hidden font-sans transition-colors duration-300 ${
-      theme === 'light' ? 'bg-white' : 'bg-[#020617]'
-    }`}>
+    <div
+      className="flex h-screen w-screen overflow-hidden font-sans theme-transition"
+      style={{ backgroundColor: 'var(--bg-primary)' }}
+    >
       <ReactFlowProvider>
         {/* Left Sidebar */}
         <Sidebar
@@ -519,24 +691,12 @@ const App: React.FC = () => {
            isWarmedUp={isWarmedUp}
            onSaveScenario={handleSaveScenario}
            onLoadScenario={handleLoadScenario}
-           theme={theme}
-           onToggleTheme={toggleTheme}
+           onOpenSettings={() => setIsSettingsOpen(true)}
+           onOpenComparison={() => setIsComparisonOpen(true)}
         />
-        
+
         {/* Center Canvas */}
         <div className="flex-1 h-full relative flex flex-col" ref={reactFlowWrapper}>
-          <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
-             {/* Entity Layer */}
-             <div className="relative w-full h-full transform-gpu">
-                 {/* Needs to transform with viewport. Simplification: Just render if not panning heavily. 
-                     For true syncing, we'd use a CustomLayer in ReactFlow. 
-                     Here we use absolute overlay but it won't pan with zoom correctly without `useViewport`.
-                     Let's stick to Node status visualizations which are robust.
-                     OR: Just render entities if using screenToFlow logic reverse.
-                 */}
-             </div>
-          </div>
-
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -554,21 +714,14 @@ const App: React.FC = () => {
             minZoom={0.5}
             maxZoom={2}
           >
-            <Controls className={`${theme === 'light'
-              ? 'bg-white border border-slate-200 fill-slate-600'
-              : 'bg-slate-800 border border-slate-700 fill-slate-300'
-            }`} />
+            <Controls />
             <Background
-              color={theme === 'light' ? '#e2e8f0' : '#1e293b'}
+              color="var(--canvas-dot)"
               gap={24}
               size={1}
               variant={BackgroundVariant.Dots}
             />
             <MiniMap
-                className={`rounded-lg overflow-hidden ${theme === 'light'
-                  ? '!bg-slate-50 !border-slate-200'
-                  : '!bg-slate-900 !border-slate-800'
-                }`}
                 nodeColor={(n) => {
                     const t = n.data?.type;
                     if (t === NodeType.SOURCE) return '#3b82f6';
@@ -591,15 +744,24 @@ const App: React.FC = () => {
            simulationTime={simulationTime}
            warmupTime={warmupTime}
            isWarmedUp={isWarmedUp}
-           theme={theme}
         />
       </ReactFlowProvider>
 
-      <AnalysisModal 
+      <AnalysisModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         result={analysisResult}
         isLoading={isAnalyzing}
+      />
+
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
+
+      <ScenarioComparisonModal
+        isOpen={isComparisonOpen}
+        onClose={() => setIsComparisonOpen(false)}
       />
     </div>
   );

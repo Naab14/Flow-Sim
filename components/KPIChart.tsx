@@ -1,5 +1,6 @@
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface KPIChartProps {
   data: any[];
@@ -9,6 +10,9 @@ interface KPIChartProps {
 }
 
 const KPIChart: React.FC<KPIChartProps> = ({ data, dataKey, color, label }) => {
+  const { isDark } = useTheme();
+  const isLight = !isDark;
+
   return (
     <div className="h-24 w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -19,18 +23,23 @@ const KPIChart: React.FC<KPIChartProps> = ({ data, dataKey, color, label }) => {
                 <stop offset="95%" stopColor={color} stopOpacity={0}/>
             </linearGradient>
             </defs>
-            <Tooltip 
-                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '4px', fontSize: '12px' }}
-                itemStyle={{ color: '#f1f5f9' }}
+            <Tooltip
+                contentStyle={{
+                  backgroundColor: isLight ? '#ffffff' : '#1e293b',
+                  borderColor: isLight ? '#e2e8f0' : '#334155',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+                itemStyle={{ color: isLight ? '#1e293b' : '#f1f5f9' }}
                 labelStyle={{ display: 'none' }}
             />
-            <Area 
-                type="monotone" 
-                dataKey={dataKey} 
-                stroke={color} 
+            <Area
+                type="monotone"
+                dataKey={dataKey}
+                stroke={color}
                 strokeWidth={2}
-                fillOpacity={1} 
-                fill={`url(#color${dataKey})`} 
+                fillOpacity={1}
+                fill={`url(#color${dataKey})`}
                 isAnimationActive={false}
             />
         </AreaChart>
