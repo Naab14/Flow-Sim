@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { NodeType } from '../types';
-import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer, Save, FolderOpen, Settings, Sun, Moon, GitCompare } from 'lucide-react';
+import { Factory, Box, ClipboardCheck, ArrowRight, Play, Activity, Pause, RotateCcw, PanelLeftClose, PanelLeftOpen, Network, Download, FastForward, Timer, Save, FolderOpen, Settings, Sun, Moon, GitCompare, Beaker } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -22,6 +22,7 @@ interface SidebarProps {
   onLoadScenario: (file: File) => void;
   onOpenSettings: () => void;
   onOpenComparison: () => void;
+  onOpenTemplates?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -41,7 +42,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSaveScenario,
   onLoadScenario,
   onOpenSettings,
-  onOpenComparison
+  onOpenComparison,
+  onOpenTemplates
 }) => {
   const { isDark, toggleMode } = useTheme();
   const { t } = useLanguage();
@@ -371,6 +373,24 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <GitCompare size={16} />
                 {!isCollapsed && <span className="text-sm font-medium">{t('sidebar.compare')}</span>}
              </button>
+
+             {/* Scenario Templates */}
+             {onOpenTemplates && (
+               <button
+                  onClick={onOpenTemplates}
+                  className={`rounded transition-all flex items-center justify-center gap-2
+                     ${isCollapsed ? 'p-3 w-full aspect-square' : 'py-2 px-3'}
+                     ${isLight
+                       ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-600 hover:text-purple-700 hover:from-purple-100 hover:to-indigo-100 border border-purple-200'
+                       : 'bg-gradient-to-r from-purple-900/30 to-indigo-900/30 text-purple-400 hover:text-purple-300 hover:from-purple-900/50 hover:to-indigo-900/50 border border-purple-700/50'
+                     }
+                  `}
+                  title="Load scenario template"
+               >
+                  <Beaker size={16} />
+                  {!isCollapsed && <span className="text-sm font-medium">Templates</span>}
+               </button>
+             )}
            </div>
 
            {!isCollapsed && (
