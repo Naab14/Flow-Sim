@@ -12,7 +12,6 @@ import ReactFlow, {
   MiniMap,
   BackgroundVariant,
   MarkerType,
-  useReactFlow,
   Position
 } from 'reactflow';
 import dagre from 'dagre';
@@ -22,11 +21,16 @@ import CustomNode from './components/CustomNode';
 import AnalysisModal from './components/AnalysisModal';
 import SettingsPanel from './components/SettingsPanel';
 import ScenarioComparisonModal from './components/ScenarioComparisonModal';
-import { INITIAL_NODES, INITIAL_EDGES, NODE_TYPES_CONFIG } from './constants';
+import ScenarioTemplatesModal from './components/ScenarioTemplatesModal';
+import ValidationPanel from './components/ValidationPanel';
+import { INITIAL_NODES, INITIAL_EDGES } from './constants';
 import { AppNode, NodeType, SimulationResult, Entity, GlobalStats, HistoryPoint } from './types';
 import { analyzeFlow } from './services/geminiService';
 import { Simulator } from './engine/Simulator';
 import { useTheme } from './contexts/ThemeContext';
+import { useToast } from './contexts/ToastContext';
+import { useValidation } from './hooks/useValidation';
+import { ScenarioTemplate } from './data/scenarioTemplates';
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => {
   const dagreGraph = new dagre.graphlib.Graph();
@@ -64,7 +68,8 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 const simulator = new Simulator();
 
 const App: React.FC = () => {
-  const { theme, isDark } = useTheme();
+  const { isDark } = useTheme();
+  const toast = useToast();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
   const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
@@ -74,8 +79,8 @@ const App: React.FC = () => {
   // Simulation State
   const [isPlaying, setIsPlaying] = useState(false);
   const [simulationTime, setSimulationTime] = useState(0);
-  const [simulationSpeed, setSimulationSpeed] = useState(5); // 1x, 2x, 5x, 10x
-  const [warmupTime, setWarmupTime] = useState(0); // Warm-up period in seconds
+  const [simulationSpeed, setSimulationSpeed] = useState(5);
+  const [warmupTime, setWarmupTime] = useState(0);
   const [isWarmedUp, setIsWarmedUp] = useState(false);
   const [globalStats, setGlobalStats] = useState<GlobalStats & { history: HistoryPoint[] }>({
     throughput: 0,
@@ -104,6 +109,12 @@ const App: React.FC = () => {
   // Settings State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+
+  // Validation State
+  const validation = useValidation(nodes, edges);
+  const [showValidation, setShowValidation] = useState(true);
+  const [validationExpanded, setValidationExpanded] = useState(true);
 
   // Clipboard for copy/paste
   const [clipboardNode, setClipboardNode] = useState<AppNode | null>(null);
@@ -117,13 +128,14 @@ const App: React.FC = () => {
     );
     setNodes([...layoutedNodes]);
     setEdges([...layoutedEdges]);
-  }, [nodes, edges, setNodes, setEdges]);
+    toast.success('Layout applied');
+  }, [nodes, edges, setNodes, setEdges, toast]);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ 
-        ...params, 
-        animated: true, 
-        type: 'smoothstep', 
+    (params: Connection) => setEdges((eds) => addEdge({
+        ...params,
+        animated: true,
+        type: 'smoothstep',
         style: { stroke: '#475569', strokeWidth: 2 },
         markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' }
     }, eds)),
@@ -146,7 +158,7 @@ const App: React.FC = () => {
         x: event.clientX,
         y: event.clientY,
       });
-      
+
       const newNode: AppNode = {
         id: `node_${Date.now()}`,
         type: 'custom',
@@ -155,7 +167,7 @@ const App: React.FC = () => {
           label: label,
           type: type,
           cycleTime: type === NodeType.PROCESS ? 10 : (type === NodeType.SOURCE ? 5 : 0),
-          cycleTimeVariation: 0, // % variation (0 = deterministic, 10 = ±10%)
+          cycleTimeVariation: 0,
           defectRate: 0,
           batchSize: 1,
           capacity: type === NodeType.INVENTORY ? 10 : 1,
@@ -195,15 +207,13 @@ const App: React.FC = () => {
     );
   }, [setNodes, selectedNode]);
 
-  // Handle Export CSV - Enhanced with all KPI metrics
+  // Handle Export CSV
   const handleExport = () => {
-     // Time series data
      const timeHeaders = "Time (s),Throughput (u/min),WIP,OEE (%)\n";
      const timeRows = simulator.history.map(row =>
         `${row.time.toFixed(1)},${row.throughput},${row.wip},${row.oee.toFixed(1)}`
      ).join("\n");
 
-     // Summary stats section
      const summarySection = [
        "",
        "--- SUMMARY ---",
@@ -237,9 +247,10 @@ const App: React.FC = () => {
      document.body.appendChild(link);
      link.click();
      document.body.removeChild(link);
+     toast.success('Report exported to CSV');
   };
 
-  // Save current scenario (nodes, edges, settings) to JSON file
+  // Save current scenario
   const handleSaveScenario = () => {
     const scenario = {
       version: '1.0',
@@ -282,6 +293,7 @@ const App: React.FC = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    toast.success('Scenario saved');
   };
 
   // Load scenario from JSON file
@@ -291,18 +303,15 @@ const App: React.FC = () => {
       try {
         const scenario = JSON.parse(e.target?.result as string);
 
-        // Validate basic structure
         if (!scenario.nodes || !scenario.edges) {
-          alert('Invalid scenario file: missing nodes or edges');
+          toast.error('Invalid scenario file: missing nodes or edges');
           return;
         }
 
-        // Stop simulation and reset
         setIsPlaying(false);
         setSimulationTime(0);
         setIsWarmedUp(false);
 
-        // Load settings if present
         if (scenario.settings) {
           if (scenario.settings.warmupTime !== undefined) {
             setWarmupTime(scenario.settings.warmupTime);
@@ -312,7 +321,6 @@ const App: React.FC = () => {
           }
         }
 
-        // Load nodes with default stats
         const loadedNodes = scenario.nodes.map((n: any) => ({
           ...n,
           data: {
@@ -334,7 +342,6 @@ const App: React.FC = () => {
           }
         }));
 
-        // Load edges with styling
         const loadedEdges = scenario.edges.map((e: any) => ({
           ...e,
           animated: true,
@@ -362,13 +369,46 @@ const App: React.FC = () => {
           history: []
         });
 
-        console.log(`Loaded scenario: ${scenario.name || 'Unknown'}`);
+        toast.success(`Loaded: ${scenario.name || 'Scenario'}`);
       } catch (error) {
         console.error('Failed to load scenario:', error);
-        alert('Failed to load scenario file. Please check the file format.');
+        toast.error('Failed to load scenario file');
       }
     };
     reader.readAsText(file);
+  };
+
+  // Load template
+  const handleLoadTemplate = (template: ScenarioTemplate) => {
+    setIsPlaying(false);
+    setSimulationTime(0);
+    setIsWarmedUp(false);
+
+    if (template.settings) {
+      setWarmupTime(template.settings.warmupTime);
+      setSimulationSpeed(template.settings.simulationSpeed);
+    }
+
+    setNodes(template.nodes);
+    setEdges(template.edges);
+    setMovingEntities([]);
+    setGlobalStats({
+      throughput: 0,
+      throughputPerMinute: 0,
+      wip: 0,
+      averageLeadTime: 0,
+      completedCount: 0,
+      totalGenerated: 0,
+      oee: 0,
+      availability: 100,
+      performance: 0,
+      quality: 100,
+      bottleneckNodeId: null,
+      bottleneckUtilization: 0,
+      history: []
+    });
+
+    toast.success(`Loaded template: ${template.name}`);
   };
 
   const handleRunAnalysis = async () => {
@@ -378,9 +418,10 @@ const App: React.FC = () => {
     try {
       const result = await analyzeFlow(nodes as AppNode[], edges);
       setAnalysisResult(result);
+      toast.success('Analysis complete');
     } catch (error) {
       console.error(error);
-      alert("Analysis failed. Please try again.");
+      toast.error('Analysis failed. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -392,8 +433,9 @@ const App: React.FC = () => {
       setNodes(nds => nds.filter(n => n.id !== selectedNode.id));
       setEdges(eds => eds.filter(e => e.source !== selectedNode.id && e.target !== selectedNode.id));
       setSelectedNode(null);
+      toast.info('Node deleted');
     }
-  }, [selectedNode, setNodes, setEdges]);
+  }, [selectedNode, setNodes, setEdges, toast]);
 
   // Duplicate selected node
   const handleDuplicateNode = useCallback(() => {
@@ -424,8 +466,9 @@ const App: React.FC = () => {
   const handleCopyNode = useCallback(() => {
     if (selectedNode) {
       setClipboardNode(selectedNode);
+      toast.info('Node copied');
     }
-  }, [selectedNode]);
+  }, [selectedNode, toast]);
 
   // Paste node from clipboard
   const handlePasteNode = useCallback(() => {
@@ -455,40 +498,43 @@ const App: React.FC = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in inputs
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
 
-      // Don't trigger when modals are open
-      if (isModalOpen || isSettingsOpen || isComparisonOpen) {
+      if (isModalOpen || isSettingsOpen || isComparisonOpen || isTemplatesOpen) {
         if (e.key === 'Escape') {
           setIsModalOpen(false);
           setIsSettingsOpen(false);
           setIsComparisonOpen(false);
+          setIsTemplatesOpen(false);
         }
         return;
       }
 
       switch (e.key) {
-        case ' ': // Space - Play/Pause
+        case ' ':
           e.preventDefault();
-          setIsPlaying(prev => !prev);
+          if (validation.canSimulate || isPlaying) {
+            setIsPlaying(prev => !prev);
+          } else {
+            toast.warning('Fix validation errors before starting');
+          }
           break;
-        case 'r': // R - Reset
+        case 'r':
         case 'R':
           if (!e.metaKey && !e.ctrlKey) {
             handleReset();
           }
           break;
-        case 'l': // L - Auto Layout
+        case 'l':
         case 'L':
           if (!e.metaKey && !e.ctrlKey) {
             onLayout();
           }
           break;
-        case 's': // Ctrl/Cmd+S - Save scenario
+        case 's':
         case 'S':
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
@@ -502,21 +548,21 @@ const App: React.FC = () => {
             handleDeleteNode();
           }
           break;
-        case 'd': // Ctrl/Cmd+D - Duplicate
+        case 'd':
         case 'D':
           if ((e.metaKey || e.ctrlKey) && selectedNode) {
             e.preventDefault();
             handleDuplicateNode();
           }
           break;
-        case 'c': // Ctrl/Cmd+C - Copy
+        case 'c':
         case 'C':
           if ((e.metaKey || e.ctrlKey) && selectedNode) {
             e.preventDefault();
             handleCopyNode();
           }
           break;
-        case 'v': // Ctrl/Cmd+V - Paste
+        case 'v':
         case 'V':
           if ((e.metaKey || e.ctrlKey) && clipboardNode) {
             e.preventDefault();
@@ -543,14 +589,14 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNode, isModalOpen, isSettingsOpen, isComparisonOpen, handleDeleteNode, handleDuplicateNode, handleCopyNode, handlePasteNode, clipboardNode, onLayout]);
+  }, [selectedNode, isModalOpen, isSettingsOpen, isComparisonOpen, isTemplatesOpen, handleDeleteNode, handleDuplicateNode, handleCopyNode, handlePasteNode, clipboardNode, onLayout, validation.canSimulate, isPlaying, toast]);
 
   const handleReset = () => {
       setIsPlaying(false);
       setSimulationTime(0);
       setIsWarmedUp(false);
       simulator.initialize(nodes as AppNode[], edges);
-      simulator.setWarmupTime(warmupTime); // Apply current warmup setting
+      simulator.setWarmupTime(warmupTime);
       setMovingEntities([]);
       setGlobalStats({
         throughput: 0,
@@ -571,16 +617,25 @@ const App: React.FC = () => {
           ...n,
           data: { ...n.data, status: 'idle', progress: 0, stats: { ...n.data.stats, queueLength: 0, utilization: 0, totalProcessed: 0, breakTime: 0 } }
       })));
+      toast.info('Simulation reset');
+  };
+
+  // Handle play/pause with validation
+  const handleTogglePlay = () => {
+    if (!isPlaying && !validation.canSimulate) {
+      toast.error('Fix errors before starting simulation');
+      return;
+    }
+    setIsPlaying(!isPlaying);
   };
 
   // Main Simulation Loop
   useEffect(() => {
     if (!isPlaying) return;
 
-    // Initialize only if fresh start
     if (simulationTime === 0) {
         simulator.initialize(nodes as AppNode[], edges);
-        simulator.setWarmupTime(warmupTime); // Set warm-up period
+        simulator.setWarmupTime(warmupTime);
     }
 
     let lastTime = performance.now();
@@ -590,20 +645,12 @@ const App: React.FC = () => {
         const dt = (time - lastTime) / 1000;
         lastTime = time;
 
-        // Run simulation step with configurable speed
-        // Manufacturing analogy: Fast-forward the production day to see results quicker
-        const speedFactor = simulationSpeed; // User-controlled: 1x, 2x, 5x, 10x
-
-        // Advance simulation physics
+        const speedFactor = simulationSpeed;
         const updateResult = simulator.update(dt * speedFactor);
 
         setSimulationTime(t => t + dt * speedFactor);
-
-        // Track warm-up status from simulator
         setIsWarmedUp(simulator.getIsWarmedUp());
 
-        // Sync React State (every frame for smooth visualization)
-        // 1. Update Nodes Visuals
         setNodes(currentNodes => currentNodes.map(n => {
             const simState = updateResult.nodes.get(n.id);
             if (simState) {
@@ -619,13 +666,11 @@ const App: React.FC = () => {
             return n;
         }));
 
-        // 2. Update Stats (use simulator's history for charts)
         setGlobalStats({
             ...updateResult.stats,
             history: simulator.history
         });
 
-        // 3. Update Moving Entities
         setMovingEntities(updateResult.entities);
 
         frameId = requestAnimationFrame(loop);
@@ -633,39 +678,14 @@ const App: React.FC = () => {
 
     frameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frameId);
-  }, [isPlaying, edges, simulationSpeed, warmupTime]); // Re-run if speed or warmup changes
+  }, [isPlaying, edges, simulationSpeed, warmupTime]);
 
-  // Render Moving Entities Overlay
-  const renderEntities = () => {
-    if (!reactFlowInstance) return null;
-    
-    return movingEntities.map(entity => {
-        // entity.currentLocation is Edge ID "Source->Target"
-        const [sourceId, targetId] = entity.currentLocation.split('->');
-        const sourceNode = reactFlowInstance.getNode(sourceId);
-        const targetNode = reactFlowInstance.getNode(targetId);
-        
-        if (!sourceNode || !targetNode) return null;
-
-        const sx = sourceNode.position.x + 180; // Approximate right handle
-        const sy = sourceNode.position.y + 40;
-        const tx = targetNode.position.x; // Approximate left handle
-        const ty = targetNode.position.y + 40;
-        
-        const x = sx + (tx - sx) * entity.progress;
-        const y = sy + (ty - sy) * entity.progress;
-        
-        return (
-            <div 
-                key={entity.id}
-                className="absolute w-3 h-3 bg-blue-400 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)] border border-white z-50 pointer-events-none transition-transform"
-                style={{ 
-                    transform: `translate(${x}px, ${y}px)`,
-                    opacity: 0.9
-                }}
-            />
-        );
-    });
+  // Select node from validation panel
+  const handleSelectNodeFromValidation = (nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+      setSelectedNode(node as AppNode);
+    }
   };
 
   return (
@@ -678,7 +698,7 @@ const App: React.FC = () => {
         <Sidebar
            simulationTime={simulationTime}
            isPlaying={isPlaying}
-           onTogglePlay={() => setIsPlaying(!isPlaying)}
+           onTogglePlay={handleTogglePlay}
            onReset={handleReset}
            onLayout={onLayout}
            throughput={globalStats.throughput}
@@ -693,6 +713,7 @@ const App: React.FC = () => {
            onLoadScenario={handleLoadScenario}
            onOpenSettings={() => setIsSettingsOpen(true)}
            onOpenComparison={() => setIsComparisonOpen(true)}
+           onOpenTemplates={() => setIsTemplatesOpen(true)}
         />
 
         {/* Center Canvas */}
@@ -732,6 +753,17 @@ const App: React.FC = () => {
                 }}
             />
           </ReactFlow>
+
+          {/* Validation Panel */}
+          {showValidation && !isPlaying && (
+            <ValidationPanel
+              validation={validation}
+              isExpanded={validationExpanded}
+              onToggle={() => setValidationExpanded(!validationExpanded)}
+              onDismiss={() => setShowValidation(false)}
+              onSelectNode={handleSelectNodeFromValidation}
+            />
+          )}
         </div>
 
         {/* Right Sidebar */}
@@ -762,6 +794,12 @@ const App: React.FC = () => {
       <ScenarioComparisonModal
         isOpen={isComparisonOpen}
         onClose={() => setIsComparisonOpen(false)}
+      />
+
+      <ScenarioTemplatesModal
+        isOpen={isTemplatesOpen}
+        onClose={() => setIsTemplatesOpen(false)}
+        onLoadTemplate={handleLoadTemplate}
       />
     </div>
   );
